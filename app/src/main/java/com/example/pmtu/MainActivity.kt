@@ -21,6 +21,8 @@ class MainActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         super.onCreate(state)
         // Programmatically initialize the scanner view
         mScannerView = ZXingScannerView(this)
+        // Disable the red laser line
+        mScannerView?.setLaserEnabled(false)
         // Set the scanner view as the content view
         setContentView(mScannerView)
 
