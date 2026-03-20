@@ -5,10 +5,17 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updateLayoutParams
 import me.dm7.barcodescanner.zxing.ZXingScannerView
 import com.google.zxing.Result
 
@@ -16,17 +23,59 @@ class MainActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
     private var mScannerView: ZXingScannerView? = null
     private val CAMERA_PERMISSION_CODE = 100
     private val FRONT_CAMERA_ID = 1
+    private val BACK_CAMERA_ID = 0
+    private var mCurrentCameraId = FRONT_CAMERA_ID
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
+
+        val rootLayout = FrameLayout(this)
+        rootLayout.layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+
         // Programmatically initialize the scanner view
         mScannerView = ZXingScannerView(this)
         // Disable the red laser line
         mScannerView?.setLaserEnabled(false)
-        // Set the scanner view as the content view
-        setContentView(mScannerView)
+        
+        rootLayout.addView(mScannerView)
+
+        // Add a button to switch cameras
+        val switchButton = Button(this)
+        switchButton.text = "Switch Camera"
+        val params = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        switchButton.layoutParams = params
+        
+        // Adjust button position to be below the camera notch/status bar
+        ViewCompat.setOnApplyWindowInsetsListener(switchButton) { view, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            view.updateLayoutParams<FrameLayout.LayoutParams> {
+                topMargin = insets.top + 16 // Add some extra padding
+            }
+            windowInsets
+        }
+
+        switchButton.setOnClickListener {
+            switchCamera()
+        }
+        rootLayout.addView(switchButton)
+
+        // Set the root layout as the content view
+        setContentView(rootLayout)
 
         checkPermission(Manifest.permission.CAMERA, CAMERA_PERMISSION_CODE)
+    }
+
+    private fun switchCamera() {
+        mScannerView?.stopCamera()
+        mCurrentCameraId = if (mCurrentCameraId == FRONT_CAMERA_ID) BACK_CAMERA_ID else FRONT_CAMERA_ID
+        mScannerView?.startCamera(mCurrentCameraId)
     }
 
     private fun checkPermission(permission: String, requestCode: Int) {
@@ -39,7 +88,7 @@ class MainActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == CAMERA_PERMISSION_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                mScannerView?.startCamera(FRONT_CAMERA_ID)
+                mScannerView?.startCamera(mCurrentCameraId)
             } else {
                 Toast.makeText(this, "Camera Permission Denied", Toast.LENGTH_SHORT).show()
             }
@@ -50,7 +99,7 @@ class MainActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         super.onResume()
         mScannerView?.setResultHandler(this)
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            mScannerView?.startCamera(FRONT_CAMERA_ID)
+            mScannerView?.startCamera(mCurrentCameraId)
         }
     }
 
@@ -61,18 +110,13 @@ class MainActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
 
     override fun handleResult(rawResult: Result) {
         Log.v("result", rawResult.text)
-        Log.v("result", rawResult.barcodeFormat.toString())
-
-        // Provide feedback to the user
-        Toast.makeText(this, "Scanned: ${rawResult.text}", Toast.LENGTH_SHORT).show()
-
-        // If you need to return the result to a calling activity, you can do it here,
-        // but note that calling finish() would close the scanner.
-        val intent = Intent()
-        intent.putExtra("KEY_QR_CODE", rawResult.text)
-        setResult(RESULT_OK, intent)
-
-        // Resume camera preview to allow further scanning
-        mScannerView?.resumeCameraPreview(this)
+        
+        // Close the scanner and open ResultActivity
+        val intent = Intent(this, ResultActivity::class.java)
+        intent.putExtra("SCANNED_TEXT", rawResult.text)
+        startActivity(intent)
+        
+        // Optional: finish the current activity if you don't want to go back to scanner
+        // finish()
     }
 }
