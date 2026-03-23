@@ -4,6 +4,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
+import android.util.Log
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
@@ -19,10 +21,17 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.net.URL
+import java.util.Locale
 
-class ResultActivity : AppCompatActivity() {
+class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var imageView: ImageView
+    private lateinit var textView: TextView
+    private var tts: TextToSpeech? = null
+    private var isTtsReady = false
+    private var pendingTTS: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,7 +66,7 @@ class ResultActivity : AppCompatActivity() {
         centerContainer.addView(imageView)
 
         // Text View for scanned result
-        val textView = TextView(this)
+        textView = TextView(this)
         textView.text = "Scanned Result:\n$scannedText"
         textView.textSize = 20f
         textView.gravity = Gravity.CENTER
@@ -95,13 +104,115 @@ class ResultActivity : AppCompatActivity() {
 
         setContentView(rootLayout)
 
-        // Example: Download image if the scanned text is a URL, or use a hardcoded one
+        // Initialize TTS
+        tts = TextToSpeech(this, this)
 
         if (scannedText.startsWith("#")) {
-            val poke_url = "https://www.serebii.net/scarletviolet/pokemon/new/" + scannedText.drop(1).split(",")[0] + ".png"
+            val number = scannedText.drop(1)
+            val poke_url = "https://www.serebii.net/scarletviolet/pokemon/new/" + number + ".png"
 
             downloadImage(poke_url)
+            get_pokedex(scannedText)
         }
+    }
+
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            val result = tts?.setLanguage(Locale.GERMAN)
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                Log.e("TTS", "The Language specified is not supported!")
+            } else {
+                isTtsReady = true
+                pendingTTS?.let {
+                    speakOut(it)
+                    pendingTTS = null
+                }
+            }
+        } else {
+            Log.e("TTS", "Initialization Failed!")
+        }
+    }
+
+    private fun speakOut(text: String) {
+        if (isTtsReady) {
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "")
+        } else {
+            pendingTTS = text
+        }
+    }
+    
+    private fun get_pokedex(number: String) {
+        try {
+            val inputStream = assets.open("pokedex.csv")
+            val reader = BufferedReader(InputStreamReader(inputStream))
+            var line: String?
+            
+            while (reader.readLine().also { line = it } != null) {
+                val lin2 = line?.drop(1)?.dropLast(1)
+                val rawColumns = lin2?.split("\",\"") ?: continue
+                // Map columns to remove surrounding quotes and trim whitespace
+                val columns = rawColumns.map { it.trim().removeSurrounding("\"") }
+                
+                if (columns.isNotEmpty() && columns[0] == number) {
+                    // Display the cleaned data
+                    val name = columns[1].replace("{G-Max}", "Gmax").replace("{MEGA}", "Mega")
+                    val default_level = columns[2]
+                    val type1 = columns[3]
+                    val type2 = columns[4]
+                    val move1 = columns[5].split("/").last()
+                    val move2 = columns[6].split("/").last()
+                    val pokedex = columns.last()
+                    val TTStext = name + ". " + pokedex
+                    val m1 = search_moves(move1)
+                    val m2 = search_moves(move2)
+                    textView.text = TTStext + "\n"+m1 + "\n"+m2
+                    speakOut(TTStext)
+                    break
+                }
+            }
+            reader.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            textView.text = "Error reading Pokédex"
+        }
+    }
+
+    private fun search_moves(moveName: String):String {
+        try {
+            val moveFiles = assets.list("")?.filter { it.startsWith("PMTU Moves") } ?: return ""
+            for (fileName in moveFiles) {
+                val inputStream = assets.open(fileName)
+                val reader = BufferedReader(InputStreamReader(inputStream))
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    val lin2 = line?.trim()?.removeSurrounding("\"")
+                    val columns = lin2?.split(",") ?: continue
+
+                    val filename = columns[10]
+                    
+                    if ( filename.equals(moveName, ignoreCase = true)) {
+                        var wurfel = columns[1]
+                        if (wurfel == ""){
+                            wurfel = "d6"
+                        }
+                        var power = columns[3]
+                        val is_stab = moveName.endsWith("(S)")
+                        if (is_stab)
+                        {
+                            power = columns[4]
+                        }
+                        val type = columns[0]
+                        val resultText = type + " " + power + " " + columns[16] + " " + wurfel
+
+                        return resultText
+                    }
+                }
+                reader.close()
+            }
+        } catch (e: Exception) {
+            Log.e("Moves", "Error searching moves", e)
+        }
+        return ""
     }
 
     private fun downloadImage(url: String) {
@@ -119,5 +230,13 @@ class ResultActivity : AppCompatActivity() {
                 imageView.setImageBitmap(bitmap)
             }
         }
+    }
+
+    override fun onDestroy() {
+        if (tts != null) {
+            tts?.stop()
+            tts?.shutdown()
+        }
+        super.onDestroy()
     }
 }
