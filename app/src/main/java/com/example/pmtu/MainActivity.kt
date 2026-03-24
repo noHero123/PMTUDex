@@ -24,7 +24,7 @@ class MainActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
     private val CAMERA_PERMISSION_CODE = 100
     private val FRONT_CAMERA_ID = 1
     private val BACK_CAMERA_ID = 0
-    private var mCurrentCameraId = FRONT_CAMERA_ID
+    private var mCurrentCameraId = BACK_CAMERA_ID
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)

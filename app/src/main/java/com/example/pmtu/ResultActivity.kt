@@ -107,12 +107,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         // Initialize TTS
         tts = TextToSpeech(this, this)
 
-        if (scannedText.startsWith("#")) {
-            val number = scannedText.drop(1)
+        if (scannedText.firstOrNull()?.isDigit()==true) {
+            val number = scannedText
             val poke_url = "https://www.serebii.net/scarletviolet/pokemon/new/" + number + ".png"
 
             downloadImage(poke_url)
-            get_pokedex(scannedText)
+            val search_string = "#"+scannedText
+            get_pokedex(search_string)
         }
     }
 
@@ -143,8 +144,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     
     private fun get_pokedex(number: String) {
         try {
-            val inputStream = assets.open("pokedex.csv")
-            val reader = BufferedReader(InputStreamReader(inputStream))
+            val reader = assets.open("pokedex.csv").bufferedReader(Charsets.ISO_8859_1)
             var line: String?
             
             while (reader.readLine().also { line = it } != null) {
@@ -181,8 +181,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         try {
             val moveFiles = assets.list("")?.filter { it.startsWith("PMTU Moves") } ?: return ""
             for (fileName in moveFiles) {
-                val inputStream = assets.open(fileName)
-                val reader = BufferedReader(InputStreamReader(inputStream))
+                val reader = assets.open(fileName).bufferedReader(Charsets.UTF_8)
                 var line: String?
                 while (reader.readLine().also { line = it } != null) {
                     val lin2 = line?.trim()?.removeSurrounding("\"")
@@ -204,6 +203,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         val type = columns[0]
                         val resultText = type + " " + power + " " + columns[16] + " " + wurfel
 
+                        reader.close()
                         return resultText
                     }
                 }
