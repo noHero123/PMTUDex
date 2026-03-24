@@ -4,8 +4,13 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
+import android.text.Spannable
+import android.text.SpannableStringBuilder
+import android.text.TextUtils
+import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.Gravity
 import android.view.ViewGroup
@@ -266,7 +271,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             val TTStext = info.name + ". " + info.pokedex
             val m1 = search_moves(info.move1)
             val m2 = search_moves(info.move2)
-            textView.text = TTStext + "\n"+m1 + "\n"+m2
+            textView.text = TextUtils.concat(TTStext, "\n", m1, "\n", m2)
             speakOut(TTStext)
         } else {
             textView.text = "Error reading Pokédex"
@@ -287,13 +292,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     val m1 = search_moves(it.move1)
                     val m2 = search_moves(it.move2)
                     val TTStext = it.name + ". " + it.pokedex
-                    textView.text = TTStext + "\n"+m1 + "\n"+m2
+                    textView.text = TextUtils.concat(TTStext, "\n", m1, "\n", m2)
                 }
             }
         }
     }
 
-    private fun search_moves(moveName: String):String {
+    private fun search_moves(moveName: String): CharSequence {
         try {
             val moveFiles = assets.list("")?.filter { it.startsWith("PMTU Moves") } ?: return ""
             for (fileName in moveFiles) {
@@ -338,10 +343,26 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                                 powerval = powerval + effectivnes
                             }
                         }
-                        val resultText = type + " " + powerval.toString() + " " + columns[16] + " " + wurfel
+                        
+                        val builder = SpannableStringBuilder()
+                        builder.append(type).append(" ")
+                        
+                        val start = builder.length
+                        builder.append(powerval.toString())
+                        val end = builder.length
+                        
+                        if (enemyPokemon != null) {
+                            if (effectivnes < 0) {
+                                builder.setSpan(ForegroundColorSpan(Color.RED), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                            } else if (effectivnes > 0) {
+                                builder.setSpan(ForegroundColorSpan(Color.GREEN), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                            }
+                        }
+                        
+                        builder.append(" ").append(columns[16]).append(" ").append(wurfel)
 
                         reader.close()
-                        return resultText
+                        return builder
                     }
                 }
                 reader.close()
