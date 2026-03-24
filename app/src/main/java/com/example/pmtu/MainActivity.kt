@@ -111,12 +111,16 @@ class MainActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
     override fun handleResult(rawResult: Result) {
         Log.v("result", rawResult.text)
         
-        // Close the scanner and open ResultActivity
-        val intent = Intent(this, ResultActivity::class.java)
-        intent.putExtra("SCANNED_TEXT", rawResult.text)
-        startActivity(intent)
-        
-        // Optional: finish the current activity if you don't want to go back to scanner
-        // finish()
+        if (callingActivity != null) {
+            val data = Intent()
+            data.putExtra("SCANNED_TEXT", rawResult.text)
+            setResult(RESULT_OK, data)
+            finish()
+        } else {
+            // Close the scanner and open ResultActivity
+            val intent = Intent(this, ResultActivity::class.java)
+            intent.putExtra("SCANNED_TEXT", rawResult.text)
+            startActivity(intent)
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.example.pmtu
 
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -13,6 +14,8 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -32,6 +35,30 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
     private var pendingTTS: String? = null
+    
+    private var ownPokemon: PokemonInfo? = null
+
+    companion object {
+        private var enemyPokemon: PokemonInfo? = null
+    }
+
+    data class PokemonInfo(
+        val name: String,
+        val type1: String,
+        val type2: String,
+        val pokedex: String,
+        val move1: String,
+        val move2: String
+    )
+
+    private val scanEnemyLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val scannedText = result.data?.getStringExtra("SCANNED_TEXT")
+            if (scannedText != null) {
+                readEnemyData(scannedText)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,19 +101,19 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         rootLayout.addView(centerContainer)
 
-        // New Scan Button at the bottom
-        val newScanButton = Button(this)
-        newScanButton.text = "New Scan"
-        val buttonParams = FrameLayout.LayoutParams(
+        // Button Container for New Scan and Scan Enemy
+        val buttonContainer = LinearLayout(this)
+        buttonContainer.orientation = LinearLayout.HORIZONTAL
+        val containerParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
-        buttonParams.gravity = Gravity.BOTTOM
-        buttonParams.setMargins(64, 0, 64, 64)
-        newScanButton.layoutParams = buttonParams
+        containerParams.gravity = Gravity.BOTTOM
+        containerParams.setMargins(64, 0, 64, 64)
+        buttonContainer.layoutParams = containerParams
 
         // Adjust button position to be above navigation bar
-        ViewCompat.setOnApplyWindowInsetsListener(newScanButton) { view, windowInsets ->
+        ViewCompat.setOnApplyWindowInsetsListener(buttonContainer) { view, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             view.updateLayoutParams<FrameLayout.LayoutParams> {
                 bottomMargin = insets.bottom + 64
@@ -94,13 +121,36 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             windowInsets
         }
 
+        val buttonLayoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f)
+
+        // New Scan Button
+        val newScanButton = Button(this)
+        newScanButton.text = "New Scan"
+        newScanButton.layoutParams = buttonLayoutParams
         newScanButton.setOnClickListener {
             val intent = Intent(this, MainActivity::class.java)
             intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
             startActivity(intent)
             finish()
         }
-        rootLayout.addView(newScanButton)
+        buttonContainer.addView(newScanButton)
+
+        // Spacer
+        val spacer = android.view.View(this)
+        spacer.layoutParams = LinearLayout.LayoutParams(32, 1)
+        buttonContainer.addView(spacer)
+
+        // Scan Enemy Button
+        val scanEnemyButton = Button(this)
+        scanEnemyButton.text = "Scan Enemy"
+        scanEnemyButton.layoutParams = buttonLayoutParams
+        scanEnemyButton.setOnClickListener {
+            val intent = Intent(this, MainActivity::class.java)
+            scanEnemyLauncher.launch(intent)
+        }
+        buttonContainer.addView(scanEnemyButton)
+
+        rootLayout.addView(buttonContainer)
 
         setContentView(rootLayout)
 
@@ -114,6 +164,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             downloadImage(poke_url)
             val search_string = "#"+scannedText
             get_pokedex(search_string)
+
         }
     }
 
@@ -142,7 +193,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
     
-    private fun get_pokedex(number: String) {
+    private fun findPokemonByNumber(number: String): PokemonInfo? {
         try {
             val reader = assets.open("pokedex.csv").bufferedReader(Charsets.ISO_8859_1)
             var line: String?
@@ -154,26 +205,91 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 val columns = rawColumns.map { it.trim().removeSurrounding("\"") }
                 
                 if (columns.isNotEmpty() && columns[0] == number) {
-                    // Display the cleaned data
-                    val name = columns[1].replace("{G-Max}", "Gmax").replace("{MEGA}", "Mega")
-                    val default_level = columns[2]
-                    val type1 = columns[3]
-                    val type2 = columns[4]
-                    val move1 = columns[5].split("/").last()
-                    val move2 = columns[6].split("/").last()
-                    val pokedex = columns.last()
-                    val TTStext = name + ". " + pokedex
-                    val m1 = search_moves(move1)
-                    val m2 = search_moves(move2)
-                    textView.text = TTStext + "\n"+m1 + "\n"+m2
-                    speakOut(TTStext)
-                    break
+                    val info = PokemonInfo(
+                        name = columns[1].replace("{G-Max}", "Gmax").replace("{MEGA}", "Mega"),
+                        type1 = columns[3],
+                        type2 = columns[4],
+                        move1 = columns[5].split("/").last(),
+                        move2 = columns[6].split("/").last(),
+                        pokedex = columns.last()
+                    )
+                    reader.close()
+                    return info
                 }
             }
             reader.close()
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+        return null
+    }
+
+    /**
+     * Calculates the effectiveness of an attacking type against a defending type.
+     * Returns an integer: 0 (immune), 1 (not very effective), 2 (normal), 4 (super effective).
+     */
+    private fun getTypeEffectiveness(attacker: String, defender: String): Int {
+        val cleanAttacker = attacker.replace("{", "").replace("}", "").trim()
+        val cleanDefender = defender.replace("{", "").replace("}", "").trim()
+
+        val typeChart = mapOf(
+            "Normal" to mapOf("Rock" to 1, "Ghost" to 0, "Steel" to 1),
+            "Grass" to mapOf("Flying" to 1, "Fire" to 1, "Bug" to 1, "Poison" to 1, "Steel" to 1, "Dragon" to 1, "Grass" to 1,  "Ground" to 4, "Water" to 4, "Rock" to 4 ),
+            "Fire" to mapOf("Dragon" to 1, "Water" to 1, "Fire" to 1, "Rock" to 1, "Grass" to 4, "Ice" to 4, "Bug" to 4, "Steel" to 4),
+            "Water" to mapOf( "Water" to 1, "Grass" to 1, "Dragon" to 1, "Fire" to 4, "Ground" to 4, "Rock" to 4),
+            "Fighting" to mapOf("Ghost" to 0, "Poison" to 1, "Flying" to 1, "Psychic" to 1, "Bug" to 1, "Fairy" to 1, "Normal" to 4, "Ice" to 4,  "Rock" to 4,  "Dark" to 4, "Steel" to 4),
+            "Flying" to mapOf("Electric" to 1, "Rock" to 1, "Steel" to 1, "Grass" to 4, "Fighting" to 4, "Bug" to 4),
+            "Poison" to mapOf("Steel" to 0, "Poison" to 1, "Ground" to 1, "Rock" to 1, "Ghost" to 1, "Grass" to 4, "Fairy" to 4),
+            "Ground" to mapOf("Flying" to 0, "Bug" to 1, "Grass" to 1, "Fire" to 4, "Electric" to 4, "Poison" to 4, "Rock" to 4, "Steel" to 4),
+            "Rock" to mapOf("Fighting" to 1, "Ground" to 1, "Steel" to 1, "Fire" to 4, "Ice" to 4, "Flying" to 4, "Bug" to 4),
+            "Bug" to mapOf("Fire" to 1, "Fighting" to 1, "Poison" to 1, "Flying" to 1, "Ghost" to 1, "Steel" to 1, "Fairy" to 1, "Psychic" to 4, "Grass" to 4, "Dark" to 4),
+            "Ghost" to mapOf("Normal" to 0, "Dark" to 1, "Psychic" to 4, "Ghost" to 4 ),
+            "Electric" to mapOf("Ground" to 0,"Dragon" to 1, "Electric" to 1, "Grass" to 1, "Water" to 4, "Flying" to 4),
+            "Psychic" to mapOf("Dark" to 0, "Psychic" to 1, "Steel" to 1,"Fighting" to 4, "Poison" to 4),
+            "Ice" to mapOf("Fire" to 1, "Water" to 1, "Ice" to 1, "Steel" to 1, "Ground" to 4, "Grass" to 4, "Flying" to 4, "Dragon" to 4),
+            "Dragon" to mapOf("Dragon" to 4, "Steel" to 1, "Fairy" to 0),
+            "Dark" to mapOf("Fighting" to 1, "Psychic" to 4, "Ghost" to 4, "Dark" to 1, "Fairy" to 1),
+            "Steel" to mapOf("Steel" to 1, "Fire" to 1, "Water" to 1, "Electric" to 1, "Ice" to 4, "Rock" to 4, "Fairy" to 4),
+            "Fairy" to mapOf("Steel" to 1, "Fire" to 1, "Poison" to 1, "Dragon" to 4, "Dark" to 4, "Fighting" to 4)
+        )
+        val type1Effectiveness = typeChart[cleanAttacker]?.get(cleanDefender) ?: 2
+        if (type1Effectiveness == 0){return -100}
+        if (type1Effectiveness == 1){return -2}
+        if (type1Effectiveness == 4){return 2}
+        return 0
+    }
+
+    private fun get_pokedex(number: String) {
+        val info = findPokemonByNumber(number)
+        ownPokemon = info
+        if (info != null) {
+            val TTStext = info.name + ". " + info.pokedex
+            val m1 = search_moves(info.move1)
+            val m2 = search_moves(info.move2)
+            textView.text = TTStext + "\n"+m1 + "\n"+m2
+            speakOut(TTStext)
+        } else {
             textView.text = "Error reading Pokédex"
+        }
+    }
+
+    private fun readEnemyData(scannedText: String) {
+        if (scannedText.firstOrNull()?.isDigit() == true) {
+            val search_string = "#$scannedText"
+            val info = findPokemonByNumber(search_string)
+            if (info != null) {
+                enemyPokemon = info
+                Toast.makeText(this, "Enemy ${info.name} scanned", Toast.LENGTH_SHORT).show()
+                Log.d("ScanEnemy", "Scanned enemy: ${info.name}, types: ${info.type1}/${info.type2}")
+                
+                // Refresh moves display for ownPokemon if it exists
+                ownPokemon?.let {
+                    val m1 = search_moves(it.move1)
+                    val m2 = search_moves(it.move2)
+                    val TTStext = it.name + ". " + it.pokedex
+                    textView.text = TTStext + "\n"+m1 + "\n"+m2
+                }
+            }
         }
     }
 
@@ -200,8 +316,29 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         {
                             power = columns[4]
                         }
+                        var powerval = power.toIntOrNull() ?: 0
+
                         val type = columns[0]
-                        val resultText = type + " " + power + " " + columns[16] + " " + wurfel
+                        var effectivnes = 0
+                        if (enemyPokemon != null){
+                            val effectiveness1 = getTypeEffectiveness(type, enemyPokemon!!.type1)
+                            val effectiveness2= getTypeEffectiveness(type, enemyPokemon!!.type2)
+                            effectivnes = effectiveness1 + effectiveness2
+
+                            if (effectivnes == -4){
+                                effectivnes = -3
+                            }
+                            if (effectivnes == 4){
+                                effectivnes = 3
+                            }
+                            if (effectivnes < -4){
+                                powerval = 0
+                            }else
+                            {
+                                powerval = powerval + effectivnes
+                            }
+                        }
+                        val resultText = type + " " + powerval.toString() + " " + columns[16] + " " + wurfel
 
                         reader.close()
                         return resultText
