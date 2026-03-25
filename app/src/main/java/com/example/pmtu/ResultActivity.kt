@@ -164,7 +164,12 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         if (scannedText.firstOrNull()?.isDigit()==true) {
             val number = scannedText
-            val poke_url = "https://www.serebii.net/scarletviolet/pokemon/new/" + number + ".png"
+            var url_number = number
+            if (number == "890-gi"){
+                url_number = "890-e"
+            }
+            val poke_url = "https://www.serebii.net/pokemon/art/" + url_number + ".png"
+            val poke_sprite_url = "https://www.serebii.net/pokedex-sv/icon/" + url_number + ".png"
 
             downloadImage(poke_url)
             val search_string = "#"+scannedText
