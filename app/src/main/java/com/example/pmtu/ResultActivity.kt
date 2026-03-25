@@ -5,12 +5,15 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.TextUtils
 import android.text.style.ForegroundColorSpan
+import android.text.style.ImageSpan
 import android.util.Log
 import android.view.Gravity
 import android.view.ViewGroup
@@ -37,6 +40,7 @@ import java.util.Locale
 class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var imageView: ImageView
     private lateinit var textView: TextView
+    private lateinit var diceContainer: LinearLayout
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
     private var pendingTTS: String? = null
@@ -49,11 +53,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     data class PokemonInfo(
         val name: String,
+        val base_level: Int,
         val type1: String,
         val type2: String,
         val pokedex: String,
         val move1: String,
-        val move2: String
+        val move2: String,
+        var additionalLevel: Int = 0
     )
 
     private val scanEnemyLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -86,6 +92,18 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         centerContainer.layoutParams = centerParams
         centerContainer.setPadding(32, 32, 32, 32)
 
+        // Dice Container
+        diceContainer = LinearLayout(this)
+        diceContainer.orientation = LinearLayout.HORIZONTAL
+        diceContainer.gravity = Gravity.CENTER
+        val diceParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        diceParams.bottomMargin = 16
+        diceContainer.layoutParams = diceParams
+        centerContainer.addView(diceContainer)
+
         // Scanned Text
         val scannedText = intent.getStringExtra("SCANNED_TEXT") ?: "No data"
         
@@ -93,9 +111,26 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         imageView = ImageView(this)
         imageView.setImageResource(android.R.drawable.ic_menu_camera)
         val imageParams = LinearLayout.LayoutParams(600, 600)
-        imageParams.bottomMargin = 64
+        imageParams.bottomMargin = 32
         imageView.layoutParams = imageParams
         centerContainer.addView(imageView)
+
+        // Pokedex Button
+        val pokedexButton = Button(this)
+        pokedexButton.text = "Pokédex"
+        val pokeButtonParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        pokeButtonParams.bottomMargin = 32
+        pokedexButton.layoutParams = pokeButtonParams
+        pokedexButton.setOnClickListener {
+            ownPokemon?.let {
+                val textToSpeak = it.name + ". " + it.pokedex
+                speakOut(textToSpeak)
+            }
+        }
+        centerContainer.addView(pokedexButton)
 
         // Text View for scanned result
         textView = TextView(this)
@@ -217,11 +252,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 if (columns.isNotEmpty() && columns[0] == number) {
                     val info = PokemonInfo(
                         name = columns[1].replace("{G-Max}", "Gmax").replace("{MEGA}", "Mega"),
+                        base_level = columns[2].toInt(),
                         type1 = columns[3],
                         type2 = columns[4],
                         move1 = columns[5].split("/").last(),
                         move2 = columns[6].split("/").last(),
-                        pokedex = columns.last()
+                        pokedex = columns.last(),
+                        additionalLevel = 0
                     )
                     reader.close()
                     return info
@@ -273,13 +310,60 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val info = findPokemonByNumber(number)
         ownPokemon = info
         if (info != null) {
-            val TTStext = info.name + ". " + info.pokedex
-            val m1 = search_moves(info.move1)
-            val m2 = search_moves(info.move2)
-            textView.text = TextUtils.concat(TTStext, "\n", m1, "\n", m2)
-            speakOut(TTStext)
+            showDice(false)
+            refreshMoves()
         } else {
             textView.text = "Error reading Pokédex"
+        }
+    }
+
+    private fun refreshMoves() {
+        ownPokemon?.let {
+            val m1 = search_moves(it.move1)
+            val m2 = search_moves(it.move2)
+            textView.text = TextUtils.concat(m1, "\n", m2)
+        }
+    }
+
+    private fun showDice(all: Boolean) {
+        diceContainer.removeAllViews()
+        val level = ownPokemon?.additionalLevel ?: 0
+        
+        if (all) {
+            for (i in 0..6) {
+                val diceIv = ImageView(this)
+                try {
+                    val inputStream = assets.open("blued6_$i.png")
+                    val bitmap = BitmapFactory.decodeStream(inputStream)
+                    diceIv.setImageBitmap(bitmap)
+                    val params = LinearLayout.LayoutParams(100, 100)
+                    params.setMargins(8, 0, 8, 0)
+                    diceIv.layoutParams = params
+                    diceIv.setOnClickListener {
+                        ownPokemon?.additionalLevel = i
+                        showDice(false)
+                        refreshMoves()
+                    }
+                    diceContainer.addView(diceIv)
+                } catch (e: Exception) {
+                    Log.e("Dice", "Error loading dice image blued6_$i.png", e)
+                }
+            }
+        } else {
+            val diceIv = ImageView(this)
+            try {
+                val inputStream = assets.open("blued6_$level.png")
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                diceIv.setImageBitmap(bitmap)
+                val params = LinearLayout.LayoutParams(150, 150)
+                diceIv.layoutParams = params
+                diceIv.setOnClickListener {
+                    showDice(true)
+                }
+                diceContainer.addView(diceIv)
+            } catch (e: Exception) {
+                Log.e("Dice", "Error loading dice image blued6_$level.png", e)
+            }
         }
     }
 
@@ -291,14 +375,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 enemyPokemon = info
                 Toast.makeText(this, "Enemy ${info.name} scanned", Toast.LENGTH_SHORT).show()
                 Log.d("ScanEnemy", "Scanned enemy: ${info.name}, types: ${info.type1}/${info.type2}")
-                
-                // Refresh moves display for ownPokemon if it exists
-                ownPokemon?.let {
-                    val m1 = search_moves(it.move1)
-                    val m2 = search_moves(it.move2)
-                    val TTStext = it.name + ". " + it.pokedex
-                    textView.text = TextUtils.concat(TTStext, "\n", m1, "\n", m2)
-                }
+                refreshMoves()
             }
         }
     }
@@ -327,6 +404,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             power = columns[4]
                         }
                         var powerval = power.toIntOrNull() ?: 0
+                        
+                        // Add base_level and additionalLevel to power
+                        ownPokemon?.let {
+                            powerval += it.base_level + it.additionalLevel
+                        }
 
                         val type = columns[0]
                         var effectivnes = 0
@@ -350,7 +432,26 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         }
                         
                         val builder = SpannableStringBuilder()
-                        builder.append(type).append(" ")
+                        
+                        // Handle Type Image
+                        val cleanType = type.replace("{", "").replace("}", "").trim()
+                        val typeImagePath = "$cleanType.png"
+                        try {
+                            val inputStream = assets.open(typeImagePath)
+                            val bitmap = BitmapFactory.decodeStream(inputStream)
+                            val drawable: Drawable = BitmapDrawable(resources, bitmap)
+                            
+                            // Scale drawable to fit text height
+                            val size = (textView.textSize * 1.5).toInt()
+                            drawable.setBounds(0, 0, (size * bitmap.width / bitmap.height), size)
+                            
+                            builder.append("  ") // Placeholder for image
+                            builder.setSpan(ImageSpan(drawable, ImageSpan.ALIGN_BOTTOM), 0, 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                            builder.append(" ")
+                        } catch (e: Exception) {
+                            Log.e("Moves", "Error loading type image: $typeImagePath", e)
+                            builder.append(type).append(" ")
+                        }
                         
                         val start = builder.length
                         builder.append(powerval.toString())
