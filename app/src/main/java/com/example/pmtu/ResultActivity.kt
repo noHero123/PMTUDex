@@ -36,6 +36,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.URL
 import java.util.Locale
+import kotlin.random.Random
 
 class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var imageView: ImageView
@@ -56,10 +57,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val base_level: Int,
         val type1: String,
         val type2: String,
-        val pokedex: String,
+        val pokedexEntries: List<String>,
         val move1: String,
         val move2: String,
-        var additionalLevel: Int = 0
+        var additionalLevel: Int = 0,
+        var nextPokedexIndex: Int = 0
     )
 
     private val scanEnemyLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -126,8 +128,14 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         pokedexButton.layoutParams = pokeButtonParams
         pokedexButton.setOnClickListener {
             ownPokemon?.let {
-                val textToSpeak = it.name + ". " + it.pokedex
-                speakOut(textToSpeak)
+                if (it.pokedexEntries.isNotEmpty()) {
+                    val entry = it.pokedexEntries[it.nextPokedexIndex]
+                    val textToSpeak = it.name + ". " + entry
+                    speakOut(textToSpeak)
+                    
+                    // Increment index for next click, loop if necessary
+                    it.nextPokedexIndex = (it.nextPokedexIndex + 1) % it.pokedexEntries.size
+                }
             }
         }
         centerContainer.addView(pokedexButton)
@@ -250,15 +258,27 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 val columns = rawColumns.map { it.trim().removeSurrounding("\"") }
                 
                 if (columns.isNotEmpty() && columns[0] == number) {
+                    val entries = mutableListOf<String>()
+                    if (columns.size > 7) {
+                        for (i in 7 until columns.size) {
+                            if (columns[i].startsWith("de")) {
+                                entries.add(columns[i].drop(2))
+                            }
+                        }
+                    }
+                    // Shuffle the entries randomly after scanning
+                    entries.shuffle()
+                    
                     val info = PokemonInfo(
                         name = columns[1].replace("{G-Max}", "Gmax").replace("{MEGA}", "Mega"),
                         base_level = columns[2].toInt(),
                         type1 = columns[3],
                         type2 = columns[4],
+                        pokedexEntries = entries,
                         move1 = columns[5].split("/").last(),
                         move2 = columns[6].split("/").last(),
-                        pokedex = columns.last(),
-                        additionalLevel = 0
+                        additionalLevel = 0,
+                        nextPokedexIndex = 0
                     )
                     reader.close()
                     return info
