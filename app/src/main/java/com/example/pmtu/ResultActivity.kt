@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.Bundle
@@ -18,6 +19,7 @@ import android.text.style.ImageSpan
 import android.util.Base64
 import android.util.Log
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
@@ -38,6 +40,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.net.URL
 import java.util.Locale
 import kotlin.random.Random
@@ -47,17 +50,24 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var textView: TextView
     private lateinit var diceContainer: LinearLayout
     private lateinit var teamContainer: LinearLayout
+    private lateinit var enemySpriteView: ImageView
+    private lateinit var clearEnemyButton: TextView
+    private lateinit var pokedexButton: Button
+    private lateinit var addRemoveButton: Button
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
     private var pendingTTS: String? = null
     
     private var ownPokemon: PokemonInfo? = null
     private var isSelectingSlot = false
+    private val moveTypeCache = mutableMapOf<String, String>()
+    private val moveIgnoreCache = mutableMapOf<String, Boolean>()
 
     companion object {
         private var enemyPokemon: PokemonInfo? = null
         private var teamPokemon = arrayOfNulls<PokemonInfo>(6)
         private const val TEAM_FILE_NAME = "team_data.json"
+        private const val IMAGE_DIR_NAME = "pokemon_images"
     }
 
     data class PokemonInfo(
@@ -105,7 +115,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             ViewGroup.LayoutParams.MATCH_PARENT
         )
 
-        // Team Container at the top
+        // Team Layout (Horizontal)
         teamContainer = LinearLayout(this)
         teamContainer.orientation = LinearLayout.HORIZONTAL
         teamContainer.gravity = Gravity.CENTER
@@ -124,6 +134,21 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         
         mainContainer.addView(teamContainer)
+
+        // Add to Team Button (+) or Remove (-) below team
+        addRemoveButton = Button(this)
+        addRemoveButton.text = "+"
+        val addTeamParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        addRemoveButton.layoutParams = addTeamParams
+        
+        val buttonWrapper = LinearLayout(this)
+        buttonWrapper.gravity = Gravity.CENTER_HORIZONTAL
+        buttonWrapper.addView(addRemoveButton)
+        mainContainer.addView(buttonWrapper)
+        
         updateTeamView()
 
         // Center Container for Image and Text
@@ -150,24 +175,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         diceContainer.layoutParams = diceParams
         centerContainer.addView(diceContainer)
 
-        // Add to Team Button (+)
-        val addToTeamButton = Button(this)
-        addToTeamButton.text = "+"
-        val addTeamParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        )
-        addTeamParams.bottomMargin = 8
-        addToTeamButton.layoutParams = addTeamParams
-        addToTeamButton.setOnClickListener {
-            if (ownPokemon != null) {
-                isSelectingSlot = true
-                Toast.makeText(this, "Select a slot to save ${ownPokemon?.name}", Toast.LENGTH_SHORT).show()
-                updateTeamView()
-            }
-        }
-        centerContainer.addView(addToTeamButton)
-
         // Scanned Text
         val scannedText = intent.getStringExtra("SCANNED_TEXT")
         
@@ -180,7 +187,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         centerContainer.addView(imageView)
 
         // Pokedex Button
-        val pokedexButton = Button(this)
+        pokedexButton = Button(this)
         pokedexButton.text = "Pokédex"
         val pokeButtonParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -195,6 +202,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     val textToSpeak = it.name + ". " + entry
                     speakOut(textToSpeak)
                     it.nextPokedexIndex = (it.nextPokedexIndex + 1) % it.pokedexEntries.size
+                    updatePokedexButtonText()
                 }
             }
         }
@@ -212,6 +220,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         // Button Container for New Scan and Scan Enemy
         val buttonContainer = LinearLayout(this)
         buttonContainer.orientation = LinearLayout.HORIZONTAL
+        buttonContainer.gravity = Gravity.BOTTOM
         val containerParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
@@ -236,15 +245,49 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         spacer.layoutParams = LinearLayout.LayoutParams(32, 1)
         buttonContainer.addView(spacer)
 
+        // Enemy Layout (Vertical: Sprite/X Container + Button)
+        val enemyLayout = LinearLayout(this)
+        enemyLayout.orientation = LinearLayout.VERTICAL
+        enemyLayout.gravity = Gravity.CENTER
+        enemyLayout.layoutParams = buttonLayoutParams
+
+        // Sprite and X Container
+        val spriteContainer = LinearLayout(this)
+        spriteContainer.orientation = LinearLayout.HORIZONTAL
+        spriteContainer.gravity = Gravity.CENTER
+        enemyLayout.addView(spriteContainer)
+
+        enemySpriteView = ImageView(this)
+        val enemySpriteParams = LinearLayout.LayoutParams(120, 120)
+        enemySpriteView.layoutParams = enemySpriteParams
+        spriteContainer.addView(enemySpriteView)
+
+        // Clear Enemy Button (Red X)
+        clearEnemyButton = TextView(this)
+        clearEnemyButton.text = "X"
+        clearEnemyButton.setTextColor(Color.RED)
+        clearEnemyButton.textSize = 24f
+        clearEnemyButton.setPadding(16, 0, 16, 0)
+        clearEnemyButton.visibility = View.GONE
+        clearEnemyButton.setOnClickListener {
+            clearEnemy()
+        }
+        spriteContainer.addView(clearEnemyButton)
+
         // Scan Enemy Button
         val scanEnemyButton = Button(this)
         scanEnemyButton.text = "Scan Enemy"
-        scanEnemyButton.layoutParams = buttonLayoutParams
+        scanEnemyButton.layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
         scanEnemyButton.setOnClickListener {
             val intent = Intent(this, MainActivity::class.java)
             scanEnemyLauncher.launch(intent)
         }
-        buttonContainer.addView(scanEnemyButton)
+        enemyLayout.addView(scanEnemyButton)
+
+        buttonContainer.addView(enemyLayout)
 
         mainContainer.addView(buttonContainer)
         rootLayout.addView(mainContainer)
@@ -272,6 +315,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 selectPokemon(it)
             }
         }
+        
+        // Show existing enemy sprite if any
+        enemyPokemon?.let { 
+            updateEnemySprite(it.spriteUrl)
+        }
+        updatePokedexButtonText()
+        updateAddRemoveButton()
     }
 
     private fun saveTeamData() {
@@ -329,35 +379,155 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             isSelectingSlot = false
             updateTeamView()
             saveTeamData()
+            updateAddRemoveButton()
             Toast.makeText(this, "${current.name} saved to slot ${slot + 1}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun removeFromTeam() {
+        ownPokemon?.let { current ->
+            for (i in 0 until 6) {
+                if (teamPokemon[i]?.name == current.name) {
+                    teamPokemon[i] = null
+                }
+            }
+            saveTeamData()
+            updateTeamView()
+            updateAddRemoveButton()
+            Toast.makeText(this, "${current.name} removed from team", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun updateAddRemoveButton() {
+        val current = ownPokemon
+        if (current == null) {
+            addRemoveButton.visibility = View.GONE
+            return
+        }
+        addRemoveButton.visibility = View.VISIBLE
+        val isInTeam = teamPokemon.any { it?.name == current.name }
+        
+        if (isInTeam) {
+            addRemoveButton.text = "-"
+            addRemoveButton.setOnClickListener { removeFromTeam() }
+        } else {
+            addRemoveButton.text = "+"
+            addRemoveButton.setOnClickListener {
+                isSelectingSlot = true
+                Toast.makeText(this, "Select a slot to save ${current.name}", Toast.LENGTH_SHORT).show()
+                updateTeamView()
+            }
         }
     }
 
     private fun selectPokemon(pokemon: PokemonInfo) {
         ownPokemon = pokemon
         lifecycleScope.launch {
-            val artBitmap = withContext(Dispatchers.IO) {
-                try {
-                    val inputStream = URL(pokemon.artUrl).openStream()
-                    BitmapFactory.decodeStream(inputStream)
-                } catch (e: Exception) { null }
-            }
+            val artBitmap = loadCachedBitmap(pokemon.artUrl)
             if (artBitmap != null) {
                 imageView.setImageBitmap(artBitmap)
+            } else {
+                val downloaded = withContext(Dispatchers.IO) {
+                    try {
+                        val inputStream = URL(pokemon.artUrl).openStream()
+                        val bitmap = BitmapFactory.decodeStream(inputStream)
+                        if (bitmap != null) saveBitmapToCache(pokemon.artUrl, bitmap)
+                        bitmap
+                    } catch (e: Exception) { null }
+                }
+                if (downloaded != null) {
+                    imageView.setImageBitmap(downloaded)
+                }
             }
         }
         showDice(false)
         refreshMoves()
+        updatePokedexButtonText()
+        updateAddRemoveButton()
+    }
+
+    private fun fetchMoveData(moveName: String): Pair<String?, Boolean> {
+        if (moveTypeCache.containsKey(moveName)) {
+            return Pair(moveTypeCache[moveName], moveIgnoreCache[moveName] ?: false)
+        }
+        
+        try {
+            val moveFiles = assets.list("")?.filter { it.startsWith("PMTU Moves") } ?: return Pair(null, false)
+            for (fileName in moveFiles) {
+                val reader = assets.open(fileName).bufferedReader(Charsets.UTF_8)
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    val lin2 = line?.trim()?.removeSurrounding("\"")
+                    val columns = lin2?.split(",") ?: continue
+                    val filename = columns[10]
+                    if (filename.equals(moveName, ignoreCase = true)) {
+                        val type = columns[0]
+                        val ignores = if (columns.size > 17) columns[17].contains("{W Ignore}", ignoreCase = true) else false
+                        moveTypeCache[moveName] = type
+                        moveIgnoreCache[moveName] = ignores
+                        reader.close()
+                        return Pair(type, ignores)
+                    }
+                }
+                reader.close()
+            }
+        } catch (e: Exception) {
+            Log.e("Moves", "Error searching move data", e)
+        }
+        return Pair(null, false)
+    }
+
+    private fun calculateMoveEffectiveness(moveType: String?, ignores: Boolean, defType1: String, defType2: String): Int {
+        if (moveType == null) return 0
+        if (ignores) return 0
+        return getTypeEffectiveness(moveType, defType1) + getTypeEffectiveness(moveType, defType2)
+    }
+
+    private fun getTeamMemberEffectiveness(pokemon: PokemonInfo, enemy: PokemonInfo): Int {
+        val move1Data = fetchMoveData(pokemon.move1)
+        val move2Data = fetchMoveData(pokemon.move2)
+        
+        var hasSuper = false
+        var hasNeutral = false
+        
+        fun check(data: Pair<String?, Boolean>) {
+            val (moveType, ignores) = data
+            val total = calculateMoveEffectiveness(moveType, ignores, enemy.type1, enemy.type2)
+            if (total > 0) hasSuper = true
+            if (total >= 0) hasNeutral = true
+        }
+        
+        check(move1Data)
+        check(move2Data)
+        
+        return if (hasSuper) 1 else if (!hasNeutral) -1 else 0
+    }
+
+    private fun isEnemyDangerous(enemy: PokemonInfo, target: PokemonInfo): Boolean {
+        val move1Data = fetchMoveData(enemy.move1)
+        val move2Data = fetchMoveData(enemy.move2)
+        
+        fun isSuper(data: Pair<String?, Boolean>): Boolean {
+            val (moveType, ignores) = data
+            val total = calculateMoveEffectiveness(moveType, ignores, target.type1, target.type2)
+            return total > 0
+        }
+        
+        return isSuper(move1Data) || isSuper(move2Data)
     }
 
     private fun updateTeamView() {
         teamContainer.removeAllViews()
         for (i in 0 until 6) {
+            val slotContainer = FrameLayout(this)
+            val slotParams = LinearLayout.LayoutParams(120, 120)
+            slotParams.setMargins(8, 0, 8, 0)
+            slotContainer.layoutParams = slotParams
+
             val slotIv = ImageView(this)
-            val params = LinearLayout.LayoutParams(120, 120)
-            params.setMargins(8, 0, 8, 0)
-            slotIv.layoutParams = params
+            slotIv.layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
             slotIv.scaleType = ImageView.ScaleType.FIT_CENTER
+            slotContainer.addView(slotIv)
             
             val pokemon = teamPokemon[i]
             if (isSelectingSlot) {
@@ -367,16 +537,42 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 }
                 if (pokemon?.spriteBitmap != null) slotIv.setImageBitmap(pokemon.spriteBitmap)
             } else {
-                if (pokemon?.spriteBitmap != null) {
-                    slotIv.setImageBitmap(pokemon.spriteBitmap)
-                    slotIv.setOnClickListener {
-                        selectPokemon(pokemon)
+                if (pokemon != null) {
+                    if (enemyPokemon != null) {
+                        val eff = getTeamMemberEffectiveness(pokemon, enemyPokemon!!)
+                        when (eff) {
+                            1 -> slotIv.setBackgroundColor(Color.GREEN)
+                            -1 -> slotIv.setBackgroundColor(Color.RED)
+                            else -> slotIv.setBackgroundColor(Color.WHITE)
+                        }
+
+                        if (isEnemyDangerous(enemyPokemon!!, pokemon)) {
+                            val xView = TextView(this)
+                            xView.text = "x"
+                            xView.setTextColor(Color.RED)
+                            xView.textSize = 14f
+                            xView.setTypeface(null, Typeface.BOLD)
+                            val xParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT)
+                            xParams.gravity = Gravity.BOTTOM or Gravity.END
+                            xParams.setMargins(0, 0, 4, 0)
+                            xView.layoutParams = xParams
+                            slotContainer.addView(xView)
+                        }
+                    } else {
+                        slotIv.setBackgroundColor(Color.TRANSPARENT)
+                    }
+
+                    if (pokemon.spriteBitmap != null) {
+                        slotIv.setImageBitmap(pokemon.spriteBitmap)
+                        slotIv.setOnClickListener {
+                            selectPokemon(pokemon)
+                        }
                     }
                 } else {
                     slotIv.setBackgroundColor(Color.LTGRAY)
                 }
             }
-            teamContainer.addView(slotIv)
+            teamContainer.addView(slotContainer)
         }
     }
 
@@ -487,6 +683,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (info != null) {
             showDice(false)
             refreshMoves()
+            updatePokedexButtonText()
+            updateTeamView()
+            updateAddRemoveButton()
         } else {
             textView.text = "Error reading Pokédex"
         }
@@ -543,16 +742,78 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun updateEnemySprite(spriteUrl: String) {
+        if (spriteUrl.isEmpty()) {
+            enemySpriteView.setImageDrawable(null)
+            clearEnemyButton.visibility = View.GONE
+            return
+        }
+        lifecycleScope.launch {
+            val spriteBitmap = loadCachedBitmap(spriteUrl)
+            if (spriteBitmap != null) {
+                enemySpriteView.setImageBitmap(spriteBitmap)
+                clearEnemyButton.visibility = View.VISIBLE
+            } else {
+                val downloaded = withContext(Dispatchers.IO) {
+                    try {
+                        val inputStream = URL(spriteUrl).openStream()
+                        val bitmap = BitmapFactory.decodeStream(inputStream)
+                        if (bitmap != null) saveBitmapToCache(spriteUrl, bitmap)
+                        bitmap
+                    } catch (e: Exception) { null }
+                }
+                if (downloaded != null) {
+                    enemySpriteView.setImageBitmap(downloaded)
+                    clearEnemyButton.visibility = View.VISIBLE
+                }
+            }
+        }
+    }
+
+    private fun clearEnemy() {
+        enemyPokemon = null
+        enemySpriteView.setImageDrawable(null)
+        clearEnemyButton.visibility = View.GONE
+        refreshMoves()
+        updateTeamView()
+    }
+
     private fun readEnemyData(scannedText: String) {
         if (scannedText.firstOrNull()?.isDigit() == true) {
+            val number = scannedText
+            var url_number = number
+            if (number == "890-gi"){
+                url_number = "890-e"
+            }
+            val poke_sprite_url = "https://www.serebii.net/pokedex-sv/icon/" + url_number + ".png"
+
             val search_string = "#$scannedText"
-            val info = findPokemonByNumber(search_string, "", "")
+            val info = findPokemonByNumber(search_string, poke_sprite_url, "")
             if (info != null) {
                 enemyPokemon = info
                 Toast.makeText(this, "Enemy ${info.name} scanned", Toast.LENGTH_SHORT).show()
                 Log.d("ScanEnemy", "Scanned enemy: ${info.name}, types: ${info.type1}/${info.type2}")
+                updateEnemySprite(poke_sprite_url)
                 refreshMoves()
+                updateTeamView()
             }
+        }
+    }
+
+    private fun updatePokedexButtonText() {
+        ownPokemon?.let {
+            val total = it.pokedexEntries.size
+            if (total > 0) {
+                val current = it.nextPokedexIndex
+                var displayIndex = current 
+                if (displayIndex == 0) displayIndex = total
+                
+                pokedexButton.text = "Pokédex ($displayIndex/$total)"
+            } else {
+                pokedexButton.text = "Pokédex"
+            }
+        } ?: run {
+            pokedexButton.text = "Pokédex"
         }
     }
 
@@ -571,26 +832,32 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     if ( filename.equals(moveName, ignoreCase = true)) {
                         var wurfel = columns[1]
                         if (wurfel == ""){
-                            wurfel = "d6"
+                            wurfel = ""
                         }
-                        var power = columns[3]
+                        var powerStr = columns[3]
                         val is_stab = moveName.endsWith("(S)")
                         if (is_stab)
                         {
-                            power = columns[4]
+                            powerStr = columns[4]
                         }
-                        var powerval = power.toIntOrNull() ?: 0
+                        powerStr = powerStr.replace("*","")
+                        
+                        var powerval: Int
+                        if (powerStr.equals("1-2 Lvl", ignoreCase = true)) {
+                            powerval = ((ownPokemon?.base_level ?: 0) + (ownPokemon?.additionalLevel ?: 0)) / 2
+                        } else {
+                            powerval = powerStr.toIntOrNull() ?: 0
+                        }
                         
                         ownPokemon?.let {
                             powerval += it.base_level + it.additionalLevel
                         }
 
                         val type = columns[0]
+                        val ignores = if (columns.size > 17) columns[17].contains("{W Ignore}", ignoreCase = true) else false
                         var effectivnes = 0
                         if (enemyPokemon != null){
-                            val effectiveness1 = getTypeEffectiveness(type, enemyPokemon!!.type1)
-                            val effectiveness2= getTypeEffectiveness(type, enemyPokemon!!.type2)
-                            effectivnes = effectiveness1 + effectiveness2
+                            effectivnes = calculateMoveEffectiveness(type, ignores, enemyPokemon!!.type1, enemyPokemon!!.type2)
 
                             if (effectivnes == -4){
                                 effectivnes = -3
@@ -649,33 +916,77 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun downloadImage(artUrl: String, spriteUrl: String) {
         lifecycleScope.launch {
-            val artBitmap = withContext(Dispatchers.IO) {
-                try {
-                    val inputStream = URL(artUrl).openStream()
-                    BitmapFactory.decodeStream(inputStream)
-                } catch (e: Exception) {
-                    null
-                }
-            }
+            val artBitmap = loadCachedBitmap(artUrl)
             if (artBitmap != null) {
                 imageView.setImageBitmap(artBitmap)
+            } else {
+                val downloadedArt = withContext(Dispatchers.IO) {
+                    try {
+                        val inputStream = URL(artUrl).openStream()
+                        val bitmap = BitmapFactory.decodeStream(inputStream)
+                        if (bitmap != null) saveBitmapToCache(artUrl, bitmap)
+                        bitmap
+                    } catch (e: Exception) { null }
+                }
+                if (downloadedArt != null) {
+                    imageView.setImageBitmap(downloadedArt)
+                }
             }
 
-            val spriteBitmap = withContext(Dispatchers.IO) {
-                try {
-                    val inputStream = URL(spriteUrl).openStream()
-                    BitmapFactory.decodeStream(inputStream)
-                } catch (e: Exception) {
-                    null
-                }
-            }
-            ownPokemon?.let {
-                it.spriteBitmap = spriteBitmap
-                if (spriteBitmap != null) {
+            val spriteBitmap = loadCachedBitmap(spriteUrl)
+            if (spriteBitmap != null) {
+                ownPokemon?.let {
+                    it.spriteBitmap = spriteBitmap
                     it.spriteBase64 = bitmapToBase64(spriteBitmap)
                 }
+                updateTeamView()
+                updateAddRemoveButton()
+            } else {
+                val downloadedSprite = withContext(Dispatchers.IO) {
+                    try {
+                        val inputStream = URL(spriteUrl).openStream()
+                        val bitmap = BitmapFactory.decodeStream(inputStream)
+                        if (bitmap != null) saveBitmapToCache(spriteUrl, bitmap)
+                        bitmap
+                    } catch (e: Exception) { null }
+                }
+                ownPokemon?.let {
+                    it.spriteBitmap = downloadedSprite
+                    if (downloadedSprite != null) {
+                        it.spriteBase64 = bitmapToBase64(downloadedSprite)
+                    }
+                }
+                updateTeamView()
+                updateAddRemoveButton()
             }
-            updateTeamView()
+        }
+    }
+
+    private fun getCacheFile(url: String): File {
+        val dir = File(filesDir, IMAGE_DIR_NAME)
+        if (!dir.exists()) dir.mkdirs()
+        val fileName = Base64.encodeToString(url.toByteArray(), Base64.URL_SAFE or Base64.NO_WRAP)
+        return File(dir, fileName)
+    }
+
+    private fun saveBitmapToCache(url: String, bitmap: Bitmap) {
+        try {
+            val file = getCacheFile(url)
+            val out = FileOutputStream(file)
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            out.flush()
+            out.close()
+        } catch (e: Exception) {
+            Log.e("Cache", "Error saving image to cache", e)
+        }
+    }
+
+    private fun loadCachedBitmap(url: String): Bitmap? {
+        val file = getCacheFile(url)
+        return if (file.exists()) {
+            BitmapFactory.decodeFile(file.absolutePath)
+        } else {
+            null
         }
     }
 
