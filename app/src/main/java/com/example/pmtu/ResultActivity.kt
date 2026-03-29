@@ -71,6 +71,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     data class PokemonInfo(
+        val id: String,
         val name: String,
         val base_level: Int,
         val type1: String,
@@ -300,14 +301,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (scannedText != null && scannedText.firstOrNull()?.isDigit()==true) {
             val number = scannedText
             var url_number = number
-            if (number == "890-gi"){
-                url_number = "890-e"
-            }
             val poke_url = "https://www.serebii.net/pokemon/art/" + url_number + ".png"
             val poke_sprite_url = "https://www.serebii.net/pokedex-sv/icon/" + url_number + ".png"
 
             downloadImage(poke_url, poke_sprite_url)
-            val search_string = "#"+scannedText
+            val search_string = number
             get_pokedex(search_string, poke_sprite_url, poke_url)
         } else if (teamPokemon.any { it != null }) {
             // Select first available team member if no scan
@@ -423,20 +421,27 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun selectPokemon(pokemon: PokemonInfo) {
         ownPokemon = pokemon
         lifecycleScope.launch {
-            val artBitmap = loadCachedBitmap(pokemon.artUrl)
-            if (artBitmap != null) {
-                imageView.setImageBitmap(artBitmap)
-            } else {
-                val downloaded = withContext(Dispatchers.IO) {
-                    try {
-                        val inputStream = URL(pokemon.artUrl).openStream()
-                        val bitmap = BitmapFactory.decodeStream(inputStream)
-                        if (bitmap != null) saveBitmapToCache(pokemon.artUrl, bitmap)
-                        bitmap
-                    } catch (e: Exception) { null }
-                }
-                if (downloaded != null) {
-                    imageView.setImageBitmap(downloaded)
+            var artUrl = pokemon.artUrl
+            if (artUrl.isEmpty() && pokemon.id.isNotEmpty()) {
+                artUrl = "https://www.serebii.net/pokemon/art/${pokemon.id}.png"
+            }
+            
+            if (artUrl.isNotEmpty()) {
+                val artBitmap = loadCachedBitmap(artUrl)
+                if (artBitmap != null) {
+                    imageView.setImageBitmap(artBitmap)
+                } else {
+                    val downloaded = withContext(Dispatchers.IO) {
+                        try {
+                            val inputStream = URL(artUrl).openStream()
+                            val bitmap = BitmapFactory.decodeStream(inputStream)
+                            if (bitmap != null) saveBitmapToCache(artUrl, bitmap)
+                            bitmap
+                        } catch (e: Exception) { null }
+                    }
+                    if (downloaded != null) {
+                        imageView.setImageBitmap(downloaded)
+                    }
                 }
             }
         }
@@ -567,6 +572,31 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         slotIv.setOnClickListener {
                             selectPokemon(pokemon)
                         }
+                    } else if (pokemon.id.isNotEmpty()) {
+                        val sUrl = if (pokemon.spriteUrl.isNotEmpty()) pokemon.spriteUrl 
+                                  else "https://www.serebii.net/pokedex-sv/icon/${pokemon.id}.png"
+                        
+                        lifecycleScope.launch {
+                            val bitmap = loadCachedBitmap(sUrl) ?: withContext(Dispatchers.IO) {
+                                try {
+                                    val inputStream = URL(sUrl).openStream()
+                                    val b = BitmapFactory.decodeStream(inputStream)
+                                    if (b != null) saveBitmapToCache(sUrl, b)
+                                    b
+                                } catch (e: Exception) { null }
+                            }
+                            if (bitmap != null) {
+                                pokemon.spriteBitmap = bitmap
+                                if (pokemon.spriteBase64 == null) {
+                                    pokemon.spriteBase64 = bitmapToBase64(bitmap)
+                                    saveTeamData()
+                                }
+                                withContext(Dispatchers.Main) {
+                                    slotIv.setImageBitmap(bitmap)
+                                    slotIv.setOnClickListener { selectPokemon(pokemon) }
+                                }
+                            }
+                        }
                     }
                 } else {
                     slotIv.setBackgroundColor(Color.LTGRAY)
@@ -623,6 +653,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     entries.shuffle()
                     
                     val info = PokemonInfo(
+                        id = number,
                         name = columns[1].replace("{G-Max}", "Gmax").replace("{MEGA}", "Mega"),
                         base_level = columns[2].toInt(),
                         type1 = columns[3],
@@ -782,12 +813,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (scannedText.firstOrNull()?.isDigit() == true) {
             val number = scannedText
             var url_number = number
-            if (number == "890-gi"){
-                url_number = "890-e"
-            }
             val poke_sprite_url = "https://www.serebii.net/pokedex-sv/icon/" + url_number + ".png"
 
-            val search_string = "#$scannedText"
+            val search_string = number
             val info = findPokemonByNumber(search_string, poke_sprite_url, "")
             if (info != null) {
                 enemyPokemon = info
