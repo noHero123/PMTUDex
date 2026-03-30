@@ -630,7 +630,27 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             pendingTTS = text
         }
     }
-    
+
+    private fun get_german_text(number:String): MutableList<String>{
+        val reader = assets.open("pokedex_ger.csv").bufferedReader(Charsets.UTF_8)
+        var line: String?
+        val entries = mutableListOf<String>()
+        while (reader.readLine().also { line = it } != null) {
+            val lin2 = line?.drop(1)?.dropLast(1)
+            val rawColumns = lin2?.split("\",\"") ?: continue
+            val columns = rawColumns.map { it.trim().removeSurrounding("\"") }
+
+            if (columns.isNotEmpty() && columns[0] == number) {
+                if (columns.size > 2) {
+                    for (i in 2 until columns.size) {
+                        entries.add(columns[i])
+                    }
+                }
+                break
+            }
+        }
+        return entries
+    }
     private fun findPokemonByNumber(number: String, spriteUrl: String, artUrl: String): PokemonInfo? {
         try {
             val reader = assets.open("pokedex.csv").bufferedReader(Charsets.ISO_8859_1)
@@ -642,19 +662,12 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 val columns = rawColumns.map { it.trim().removeSurrounding("\"") }
                 
                 if (columns.isNotEmpty() && columns[0] == number) {
-                    val entries = mutableListOf<String>()
-                    if (columns.size > 7) {
-                        for (i in 7 until columns.size) {
-                            if (columns[i].startsWith("de")) {
-                                entries.add(columns[i].drop(2))
-                            }
-                        }
-                    }
+                    val entries = get_german_text(number)
                     entries.shuffle()
                     
                     val info = PokemonInfo(
                         id = number,
-                        name = columns[1].replace("{G-Max}", "Gmax").replace("{MEGA}", "Mega"),
+                        name = columns[1].replace("{G-Max}", "Gigadynamax ").replace("{MEGA}", "Mega"),
                         base_level = columns[2].toInt(),
                         type1 = columns[3],
                         type2 = columns[4],
