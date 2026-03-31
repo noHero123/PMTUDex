@@ -772,10 +772,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 if (columns.isNotEmpty() && columns[0] == number) {
                     val entries = get_german_text(number)
                     entries.shuffle()
-                    
+                    var poke_name = columns[1].replace("{G-Max}", "Gigadynamax ").replace("{MEGA}", "Mega")
+                    poke_name = poke_name.replace("<i>", "").replace("</i>", "")
                     val info = PokemonInfo(
                         id = number,
-                        name = columns[1].replace("{G-Max}", "Gigadynamax ").replace("{MEGA}", "Mega"),
+                        name = poke_name,
                         base_level = columns[2].toInt(),
                         type1 = columns[3],
                         type2 = columns[4],
