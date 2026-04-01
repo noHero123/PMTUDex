@@ -1,6 +1,7 @@
 package com.example.pmtu
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -25,9 +26,15 @@ class MainActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
     private val FRONT_CAMERA_ID = 1
     private val BACK_CAMERA_ID = 0
     private var mCurrentCameraId = BACK_CAMERA_ID
+    private val PREFS_NAME = "CameraPrefs"
+    private val KEY_CAMERA_ID = "current_camera_id"
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
+
+        // Load saved camera state
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        mCurrentCameraId = prefs.getInt(KEY_CAMERA_ID, BACK_CAMERA_ID)
 
         val rootLayout = FrameLayout(this)
         rootLayout.layoutParams = ViewGroup.LayoutParams(
@@ -75,6 +82,11 @@ class MainActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
     private fun switchCamera() {
         mScannerView?.stopCamera()
         mCurrentCameraId = if (mCurrentCameraId == FRONT_CAMERA_ID) BACK_CAMERA_ID else FRONT_CAMERA_ID
+        
+        // Save camera state
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt(KEY_CAMERA_ID, mCurrentCameraId).apply()
+
         mScannerView?.startCamera(mCurrentCameraId)
     }
 

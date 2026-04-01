@@ -301,18 +301,34 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         spriteContainer.addView(clearEnemyButton)
 
-        // Scan Enemy Button
-        val scanEnemyButton = Button(this)
-        scanEnemyButton.text = "Scan Enemy"
-        scanEnemyButton.layoutParams = LinearLayout.LayoutParams(
+        // Switch to Enemy Button
+        val switchToEnemyButton = Button(this)
+        switchToEnemyButton.text = "Switch to Enemy"
+        switchToEnemyButton.layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
-        scanEnemyButton.setOnClickListener {
-            val intent = Intent(this, MainActivity::class.java)
-            scanEnemyLauncher.launch(intent)
+        switchToEnemyButton.setOnClickListener {
+            val oldOwn = ownPokemon
+
+            if (enemyPokemon != null) {
+                val newPoki = enemyPokemon
+                selectPokemon(newPoki!!, null)
+            } else {
+                Toast.makeText(this, "No enemy to switch with", Toast.LENGTH_SHORT).show()
+            }
+
+            enemyPokemon = oldOwn
+            if (enemyPokemon != null) {
+                updateEnemySprite(enemyPokemon!!.spriteUrl)
+            } else {
+                clearEnemy()
+            }
+            // update moves
+            refreshMoves()
+            updateTeamView()
         }
-        enemyLayout.addView(scanEnemyButton)
+        enemyLayout.addView(switchToEnemyButton)
 
         buttonContainer.addView(enemyLayout)
 
@@ -761,7 +777,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
     private fun findPokemonByNumber(number: String, spriteUrl: String, artUrl: String): PokemonInfo? {
         try {
-            val reader = assets.open("pokedex.csv").bufferedReader(Charsets.ISO_8859_1)
+            val reader = assets.open("pokedex.csv").bufferedReader(Charsets.UTF_8)
             var line: String?
             
             while (reader.readLine().also { line = it } != null) {
