@@ -991,8 +991,30 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val rowParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
-        )
+        ).apply {
+            topMargin = 8
+            bottomMargin = 8
+        }
         row.layoutParams = rowParams
+
+        // Speaker icon
+        val speakerIv = ImageView(this)
+        try {
+            val inputStream = assets.open("speaker.png")
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            speakerIv.setImageBitmap(bitmap)
+        } catch (e: Exception) {
+            Log.e("UI", "Error loading speaker icon", e)
+        }
+        val sParams = LinearLayout.LayoutParams(60, 60)
+        sParams.rightMargin = 16
+        speakerIv.layoutParams = sParams
+        speakerIv.setPadding(8, 8, 8, 8)
+        speakerIv.setOnClickListener {
+            val textToSpeak = search_moves(moveName).toString().replace(Regex("\\{.*?\\}"), "").trim()
+            speakOut(textToSpeak)
+        }
+        row.addView(speakerIv)
 
         val moveTv = TextView(this)
         moveTv.text = search_moves(moveName)
