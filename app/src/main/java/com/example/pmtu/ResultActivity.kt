@@ -999,6 +999,28 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         moveTv.textSize = 20f
         row.addView(moveTv)
 
+        // Effectiveness arrow
+        if (enemyPokemon != null) {
+            val cleanName = moveName.split(" (S)")[0]
+            val moveData = fetchMoveData(cleanName)
+            if (moveData.first != null) {
+                val eff = calculateMoveEffectiveness(moveData.first, moveData.second, enemyPokemon!!.type1, enemyPokemon!!.type2)
+                if (eff != 0) {
+                    val arrowIv = ImageView(this)
+                    val arrowPath = if (eff > 0) "arrow_green.png" else "arrow_red.png"
+                    try {
+                        val inputStream = assets.open(arrowPath)
+                        val bitmap = BitmapFactory.decodeStream(inputStream)
+                        arrowIv.setImageBitmap(bitmap)
+                    } catch (e: Exception) {}
+                    val aParams = LinearLayout.LayoutParams(40, 40)
+                    aParams.leftMargin = 16
+                    arrowIv.layoutParams = aParams
+                    row.addView(arrowIv)
+                }
+            }
+        }
+
         if (isTM) {
             val deleteIv = ImageView(this)
             try {
@@ -1174,6 +1196,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun search_moves(moveName: String): CharSequence {
         try {
             val moveFiles = assets.list("")?.filter { it.startsWith("PMTU Moves") } ?: return ""
+            val cleanMoveName = moveName.split(" (S)")[0]
             for (fileName in moveFiles) {
                 val reader = assets.open(fileName).bufferedReader(Charsets.UTF_8)
                 var line: String?
@@ -1183,7 +1206,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
                     val filename = columns[10]
                     
-                    if ( filename.equals(moveName, ignoreCase = true)) {
+                    if ( filename.equals(cleanMoveName, ignoreCase = true)) {
                         var wurfel = columns[1]
                         if (wurfel == ""){
                             wurfel = ""
