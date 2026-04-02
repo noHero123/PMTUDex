@@ -447,6 +447,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             own.move3 = moveName
                             refreshMoves()
                             saveTeamData()
+                            updateTeamView()
                             Toast.makeText(this@ResultActivity, "TM Added: $attackName", Toast.LENGTH_SHORT).show()
                         }
                         break
@@ -692,6 +693,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun getTeamMemberEffectiveness(pokemon: PokemonInfo, enemy: PokemonInfo): Int {
         val move1Data = fetchMoveData(pokemon.move1)
         val move2Data = fetchMoveData(pokemon.move2)
+        val move3Data = pokemon.move3?.let { fetchMoveData(it.split(" (S)")[0]) } ?: Pair(null, false)
         
         var hasSuper = false
         var hasNeutral = false
@@ -705,21 +707,31 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         
         check(move1Data)
         check(move2Data)
+        check(move3Data)
         
         return if (hasSuper) 1 else if (!hasNeutral) -1 else 0
     }
 
-    private fun isEnemyDangerous(enemy: PokemonInfo, target: PokemonInfo): Boolean {
+    private fun isEnemyDangerous(enemy: PokemonInfo, target: PokemonInfo): Int {
         val move1Data = fetchMoveData(enemy.move1)
         val move2Data = fetchMoveData(enemy.move2)
+        val move3Data = enemy.move3?.let { fetchMoveData(it.split(" (S)")[0]) } ?: Pair(null, false)
         
-        fun isSuper(data: Pair<String?, Boolean>): Boolean {
+        var hasSuper = false
+        var hasNeutral = false
+        
+        fun check(data: Pair<String?, Boolean>) {
             val (moveType, ignores) = data
             val total = calculateMoveEffectiveness(moveType, ignores, target.type1, target.type2)
-            return total > 0
+            if (total > 0) hasSuper = true
+            if (total >= 0) hasNeutral = true
         }
         
-        return isSuper(move1Data) || isSuper(move2Data)
+        check(move1Data)
+        check(move2Data)
+        check(move3Data)
+        
+        return if (hasSuper) 1 else if (!hasNeutral) -1 else 0
     }
 
     private fun updateTeamView() {
@@ -733,9 +745,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             val slotIv = ImageView(this)
             val ivParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
             
-            // Highlight selected slot by adding margin to the ImageView, showing the container background
             if (currentTeamIndex == i) {
-                slotContainer.setBackgroundColor(Color.YELLOW)
+                slotContainer.setBackgroundColor(Color.BLUE)
                 ivParams.setMargins(8, 8, 8, 8)
             } else {
                 slotContainer.setBackgroundColor(Color.TRANSPARENT)
@@ -755,29 +766,37 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 if (pokemon?.spriteBitmap != null) slotIv.setImageBitmap(pokemon.spriteBitmap)
             } else {
                 if (pokemon != null) {
+                    slotIv.setBackgroundColor(Color.WHITE)
+
                     if (enemyPokemon != null) {
-                        val eff = getTeamMemberEffectiveness(pokemon, enemyPokemon!!)
-                        when (eff) {
-                            1 -> slotIv.setBackgroundColor(Color.GREEN)
-                            -1 -> slotIv.setBackgroundColor(Color.RED)
-                            else -> slotIv.setBackgroundColor(Color.WHITE)
+                        val ownEff = getTeamMemberEffectiveness(pokemon, enemyPokemon!!)
+                        
+                        if (ownEff == 1) {
+                            val greenArrow = ImageView(this)
+                            try {
+                                val inputStream = assets.open("arrow_green.png")
+                                val bitmap = BitmapFactory.decodeStream(inputStream)
+                                greenArrow.setImageBitmap(bitmap)
+                            } catch (e: Exception) {}
+                            val arrowParams = FrameLayout.LayoutParams(40, 40)
+                            arrowParams.gravity = Gravity.BOTTOM or Gravity.START
+                            greenArrow.layoutParams = arrowParams
+                            slotContainer.addView(greenArrow)
                         }
 
-                        if (isEnemyDangerous(enemyPokemon!!, pokemon)) {
-                            val xView = TextView(this)
-                            xView.text = "x"
-                            xView.setTextColor(Color.RED)
-                            xView.textSize = 14f
-                            xView.setTypeface(null, Typeface.BOLD)
-                            val xParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT)
-                            xParams.gravity = Gravity.BOTTOM or Gravity.END
-                            xParams.setMargins(0, 0, 4, 0)
-                            xView.layoutParams = xParams
-                            slotContainer.addView(xView)
+                        val enemyEff = isEnemyDangerous(enemyPokemon!!, pokemon)
+                        if (enemyEff == 1) {
+                            val redArrow = ImageView(this)
+                            try {
+                                val inputStream = assets.open("arrow_red.png")
+                                val bitmap = BitmapFactory.decodeStream(inputStream)
+                                redArrow.setImageBitmap(bitmap)
+                            } catch (e: Exception) {}
+                            val arrowParams = FrameLayout.LayoutParams(40, 40)
+                            arrowParams.gravity = Gravity.BOTTOM or Gravity.END
+                            redArrow.layoutParams = arrowParams
+                            slotContainer.addView(redArrow)
                         }
-                    } else {
-                        // Maintain white background for team members even without enemy
-                        slotIv.setBackgroundColor(Color.WHITE)
                     }
 
                     if (pokemon.spriteBitmap != null) {
@@ -994,6 +1013,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 ownPokemon?.move3 = null
                 refreshMoves()
                 saveTeamData()
+                updateTeamView()
             }
             row.addView(deleteIv)
         }
