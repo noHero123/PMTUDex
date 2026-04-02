@@ -431,10 +431,17 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 while (reader.readLine().also { line = it } != null) {
                     val columns = line?.split(",") ?: continue
                     if (columns.size >= 5 && columns[0] == gen && columns[1] == number) {
+                        val attackType = columns[2].replace("{", "").replace("}", "").trim()
                         val attackName = columns[3]
-                        val isStab = columns[4].trim().equals("TRUE", ignoreCase = true)
+                        val isStabCsv = columns[4].trim().equals("TRUE", ignoreCase = true)
                         
-                        val moveName = if (isStab) "$attackName (S)" else attackName
+                        val pType1 = own.type1.replace("{", "").replace("}", "").trim()
+                        val pType2 = own.type2.replace("{", "").replace("}", "").trim()
+                        
+                        val isRealStab = isStabCsv && (attackType.equals(pType1, ignoreCase = true) || 
+                                                      (pType2 != "None" && attackType.equals(pType2, ignoreCase = true)))
+                        
+                        val moveName = if (isRealStab) "$attackName (S)" else attackName
                         
                         withContext(Dispatchers.Main) {
                             own.move3 = moveName
