@@ -1011,7 +1011,14 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         speakerIv.layoutParams = sParams
         speakerIv.setPadding(8, 8, 8, 8)
         speakerIv.setOnClickListener {
-            val textToSpeak = search_moves(moveName).toString().replace(Regex("\\{.*?\\}"), "").trim()
+            val searchResult = search_moves(moveName).toString()
+            // Remove curly brackets, dice notation, and numbers for TTS
+            val textToSpeak = searchResult
+                .replace(Regex("\\{.*?\\}"), "")
+                .replace(Regex("\\d+d\\d+"), "")
+                .replace(Regex("\\d+"), "")
+                .replace(Regex("[^a-zA-Z\\s]"), "")
+                .trim()
             speakOut(textToSpeak)
         }
         row.addView(speakerIv)
