@@ -51,11 +51,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var diceContainer: LinearLayout
     private lateinit var teamContainer: LinearLayout
     private lateinit var enemySpriteView: ImageView
-    private lateinit var clearEnemyButton: TextView
+    private lateinit var enemyTypesContainer: LinearLayout
+    private lateinit var clearEnemyButton: ImageView
     private lateinit var pokedexButton: Button
     private lateinit var addRemoveButton: Button
     private lateinit var evolutionsContainer: LinearLayout
     private lateinit var preEvolutionsContainer: LinearLayout
+    private lateinit var movesLayout: LinearLayout
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
     private var pendingTTS: String? = null
@@ -86,17 +88,25 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val artUrl: String,
         var spriteBase64: String? = null,
         var additionalLevel: Int = 0,
-        var nextPokedexIndex: Int = 0
+        var nextPokedexIndex: Int = 0,
+        var move3: String? = null
     ) {
         @Transient
         var spriteBitmap: Bitmap? = null
     }
 
-    private val scanEnemyLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+    private val pokemonScannerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val scannedText = result.data?.getStringExtra("SCANNED_TEXT")
             if (scannedText != null) {
-                readEnemyData(scannedText)
+                if (scannedText.startsWith("t", ignoreCase = true)) {
+                    handleTMScan(scannedText)
+                } else if (scannedText.firstOrNull()?.isDigit() == true) {
+                    val number = scannedText
+                    val spriteUrl = "https://www.serebii.net/pokedex-sv/icon/$number.png"
+                    val artUrl = "https://www.serebii.net/pokemon/art/$number.png"
+                    get_pokedex(number, spriteUrl, artUrl)
+                }
             }
         }
     }
@@ -235,12 +245,23 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         centerContainer.addView(pokedexButton)
 
-        // Text View for scanned result
+        // Moves Layout
+        movesLayout = LinearLayout(this)
+        movesLayout.orientation = LinearLayout.VERTICAL
+        movesLayout.gravity = Gravity.CENTER
+        val movesParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        movesLayout.layoutParams = movesParams
+        centerContainer.addView(movesLayout)
+
+        // Main Text View (fallback or general info if needed)
         textView = TextView(this)
         textView.text = ""
         textView.textSize = 20f
         textView.gravity = Gravity.CENTER
-        centerContainer.addView(textView)
+        movesLayout.addView(textView)
 
         mainContainer.addView(centerContainer)
 
@@ -263,7 +284,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         newScanButton.layoutParams = buttonLayoutParams
         newScanButton.setOnClickListener {
             val intent = Intent(this, MainActivity::class.java)
-            startActivity(intent)
+            pokemonScannerLauncher.launch(intent)
         }
         buttonContainer.addView(newScanButton)
 
@@ -278,28 +299,43 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         enemyLayout.gravity = Gravity.CENTER
         enemyLayout.layoutParams = buttonLayoutParams
 
-        // Sprite and X Container
-        val spriteContainer = LinearLayout(this)
-        spriteContainer.orientation = LinearLayout.HORIZONTAL
-        spriteContainer.gravity = Gravity.CENTER
-        enemyLayout.addView(spriteContainer)
+        // Sprite, Types and X Container
+        val enemyInfoContainer = LinearLayout(this)
+        enemyInfoContainer.orientation = LinearLayout.HORIZONTAL
+        enemyInfoContainer.gravity = Gravity.CENTER
+        enemyLayout.addView(enemyInfoContainer)
+
+        // Enemy Types Container (Left of sprite)
+        enemyTypesContainer = LinearLayout(this)
+        enemyTypesContainer.orientation = LinearLayout.VERTICAL
+        enemyTypesContainer.gravity = Gravity.CENTER
+        val etParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        etParams.rightMargin = 8
+        enemyTypesContainer.layoutParams = etParams
+        enemyInfoContainer.addView(enemyTypesContainer)
 
         enemySpriteView = ImageView(this)
         val enemySpriteParams = LinearLayout.LayoutParams(120, 120)
         enemySpriteView.layoutParams = enemySpriteParams
-        spriteContainer.addView(enemySpriteView)
+        enemyInfoContainer.addView(enemySpriteView)
 
-        // Clear Enemy Button (Red X)
-        clearEnemyButton = TextView(this)
-        clearEnemyButton.text = "X"
-        clearEnemyButton.setTextColor(Color.RED)
-        clearEnemyButton.textSize = 24f
-        clearEnemyButton.setPadding(16, 0, 16, 0)
+        // Clear Enemy Button (Trash icon)
+        clearEnemyButton = ImageView(this)
+        try {
+            val inputStream = assets.open("trash.png")
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            clearEnemyButton.setImageBitmap(bitmap)
+        } catch (e: Exception) {
+            Log.e("UI", "Error loading trash icon", e)
+        }
+        val trashParams = LinearLayout.LayoutParams(60, 60)
+        trashParams.leftMargin = 8
+        clearEnemyButton.layoutParams = trashParams
         clearEnemyButton.visibility = View.GONE
         clearEnemyButton.setOnClickListener {
             clearEnemy()
         }
-        spriteContainer.addView(clearEnemyButton)
+        enemyInfoContainer.addView(clearEnemyButton)
 
         // Switch to Enemy Button
         val switchToEnemyButton = Button(this)
@@ -342,15 +378,19 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         // Scanned Text
         val scannedText = intent.getStringExtra("SCANNED_TEXT")
-        if (scannedText != null && scannedText.firstOrNull()?.isDigit()==true) {
-            val number = scannedText
-            var url_number = number
-            val poke_url = "https://www.serebii.net/pokemon/art/" + url_number + ".png"
-            val poke_sprite_url = "https://www.serebii.net/pokedex-sv/icon/" + url_number + ".png"
+        if (scannedText != null) {
+            if (scannedText.startsWith("t", ignoreCase = true)) {
+                handleTMScan(scannedText)
+            } else if (scannedText.firstOrNull()?.isDigit() == true) {
+                val number = scannedText
+                var url_number = number
+                val poke_url = "https://www.serebii.net/pokemon/art/" + url_number + ".png"
+                val poke_sprite_url = "https://www.serebii.net/pokedex-sv/icon/" + url_number + ".png"
 
-            downloadImage(poke_url, poke_sprite_url)
-            val search_string = number
-            get_pokedex(search_string, poke_sprite_url, poke_url)
+                downloadImage(poke_url, poke_sprite_url)
+                val search_string = number
+                get_pokedex(search_string, poke_sprite_url, poke_url)
+            }
         } else if (teamPokemon.any { it != null }) {
             // Select first available team member if no scan
             val firstIndex = teamPokemon.indexOfFirst { it != null }
@@ -367,6 +407,49 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         updatePokedexButtonText()
         updateAddRemoveButton()
+    }
+
+    private fun handleTMScan(scannedText: String) {
+        val own = ownPokemon
+        if (own == null) {
+            Toast.makeText(this, "Scan a Pokémon first!", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        try {
+            // Format: tGen_Number (e.g., t1_01)
+            val data = scannedText.substring(1)
+            val parts = data.split("_")
+            if (parts.size != 2) return
+            
+            val gen = parts[0]
+            val number = parts[1]
+
+            lifecycleScope.launch(Dispatchers.IO) {
+                val reader = assets.open("TM Cards - TM List.csv").bufferedReader()
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    val columns = line?.split(",") ?: continue
+                    if (columns.size >= 5 && columns[0] == gen && columns[1] == number) {
+                        val attackName = columns[3]
+                        val isStab = columns[4].trim().equals("TRUE", ignoreCase = true)
+                        
+                        val moveName = if (isStab) "$attackName (S)" else attackName
+                        
+                        withContext(Dispatchers.Main) {
+                            own.move3 = moveName
+                            refreshMoves()
+                            saveTeamData()
+                            Toast.makeText(this@ResultActivity, "TM Added: $attackName", Toast.LENGTH_SHORT).show()
+                        }
+                        break
+                    }
+                }
+                reader.close()
+            }
+        } catch (e: Exception) {
+            Log.e("TM", "Error handling TM scan", e)
+        }
     }
 
     private fun saveTeamData() {
@@ -865,11 +948,50 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun refreshMoves() {
+        movesLayout.removeAllViews()
         ownPokemon?.let {
-            val m1 = search_moves(it.move1)
-            val m2 = search_moves(it.move2)
-            textView.text = TextUtils.concat(m1, "\n", m2)
+            addMoveRow(it.move1)
+            addMoveRow(it.move2)
+            if (it.move3 != null) {
+                addMoveRow(it.move3!!, isTM = true)
+            }
         }
+    }
+
+    private fun addMoveRow(moveName: String, isTM: Boolean = false) {
+        val row = LinearLayout(this)
+        row.orientation = LinearLayout.HORIZONTAL
+        row.gravity = Gravity.CENTER_VERTICAL
+        val rowParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        row.layoutParams = rowParams
+
+        val moveTv = TextView(this)
+        moveTv.text = search_moves(moveName)
+        moveTv.textSize = 20f
+        row.addView(moveTv)
+
+        if (isTM) {
+            val deleteIv = ImageView(this)
+            try {
+                val inputStream = assets.open("trash.png")
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                deleteIv.setImageBitmap(bitmap)
+            } catch (e: Exception) {}
+            val params = LinearLayout.LayoutParams(50, 50)
+            params.leftMargin = 16
+            deleteIv.layoutParams = params
+            deleteIv.setOnClickListener {
+                ownPokemon?.move3 = null
+                refreshMoves()
+                saveTeamData()
+            }
+            row.addView(deleteIv)
+        }
+
+        movesLayout.addView(row)
     }
 
     private fun showDice(all: Boolean) {
@@ -919,8 +1041,12 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (spriteUrl.isEmpty()) {
             enemySpriteView.setImageDrawable(null)
             clearEnemyButton.visibility = View.GONE
+            enemyTypesContainer.removeAllViews()
             return
         }
+        
+        enemyPokemon?.let { updateEnemyTypeViews(it) }
+
         lifecycleScope.launch {
             val spriteBitmap = loadCachedBitmap(spriteUrl)
             if (spriteBitmap != null) {
@@ -943,10 +1069,41 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun updateEnemyTypeViews(pokemon: PokemonInfo) {
+        enemyTypesContainer.removeAllViews()
+        addTypeIcon(pokemon.type1, enemyTypesContainer)
+        if (pokemon.type2 != "None" && pokemon.type2.isNotBlank()) {
+            addTypeIcon(pokemon.type2, enemyTypesContainer)
+        }
+    }
+
+    private fun addTypeIcon(type: String, container: LinearLayout) {
+        val cleanType = type.replace("{", "").replace("}", "").trim()
+        val iv = ImageView(this)
+        val size = 60
+        iv.layoutParams = LinearLayout.LayoutParams(size, size).apply {
+            bottomMargin = 4
+        }
+        try {
+            val inputStream = assets.open("$cleanType.png")
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            iv.setImageBitmap(bitmap)
+        } catch (e: Exception) {
+            // Fallback to small text if icon missing
+            val tv = TextView(this)
+            tv.text = cleanType
+            tv.textSize = 8f
+            container.addView(tv)
+            return
+        }
+        container.addView(iv)
+    }
+
     private fun clearEnemy() {
         enemyPokemon = null
         enemySpriteView.setImageDrawable(null)
         clearEnemyButton.visibility = View.GONE
+        enemyTypesContainer.removeAllViews()
         refreshMoves()
         updateTeamView()
     }

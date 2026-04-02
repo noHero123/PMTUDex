@@ -1,0 +1,293 @@
+Gen,Number,Type,Name,STAB,In TTS?
+1,01,Normal,Mega Punch,TRUE,TRUE
+1,02,Normal,Razor Wind,TRUE,TRUE
+1,03,Normal,Swords Dance,FALSE,TRUE
+1,04,Normal,Whirlwind,FALSE,TRUE
+1,05,Normal,Mega Kick,TRUE,TRUE
+1,06,Poison,Toxic,FALSE,TRUE
+1,07,Normal,Horn Drill,FALSE,TRUE
+1,08,Normal,Body Slam,TRUE,TRUE
+1,09,Normal,Take Down,TRUE,TRUE
+1,10,Normal,Double-Edge,TRUE,TRUE
+1,11,Water,Bubble Beam,TRUE,TRUE
+1,12,Water,Water Gun,TRUE,TRUE
+1,13,Ice,Ice Beam,TRUE,TRUE
+1,14,Ice,Blizzard,TRUE,TRUE
+1,15,Normal,Hyper Beam,TRUE,TRUE
+1,16,Normal,Pay Day,TRUE,TRUE
+1,17,Fighting,Submission,TRUE,TRUE
+1,18,Fighting,Counter,FALSE,TRUE
+1,19,Fighting,Seismic Toss,FALSE,TRUE
+1,20,Normal,Rage,TRUE,TRUE
+1,21,Grass,Mega Drain,TRUE,TRUE
+1,22,Grass,Solar Beam,TRUE,TRUE
+1,23,Dragon,Dragon Rage,FALSE,TRUE
+1,24,Electric,Thunderbolt,TRUE,TRUE
+1,25,Electric,Thunder,TRUE,TRUE
+1,26,Ground,Earthquake,TRUE,TRUE
+1,27,Ground,Fissure,FALSE,TRUE
+1,28,Ground,Dig,TRUE,TRUE
+1,29,Psychic,Psychic,TRUE,TRUE
+1,30,Psychic,Teleport,FALSE,TRUE
+1,31,Normal,Mimic,FALSE,TRUE
+1,32,Normal,Double Team,FALSE,TRUE
+1,33,Psychic,Reflect,FALSE,TRUE
+1,34,Normal,Bide,FALSE,FALSE
+1,35,Normal,Metronome,FALSE,TRUE
+1,36,Normal,Self-Destruct,TRUE,TRUE
+1,37,Normal,Egg Bomb,TRUE,TRUE
+1,38,Fire,Fire Blast,TRUE,TRUE
+1,39,Normal,Swift,TRUE,TRUE
+1,40,Normal,Skull Bash,TRUE,TRUE
+1,41,Normal,Soft-Boiled,FALSE,TRUE
+1,42,Psychic,Dream Eater,FALSE,TRUE
+1,43,Flying,Sky Attack,TRUE,TRUE
+1,44,Psychic,Rest,FALSE,TRUE
+1,45,Electric,Thunder Wave,FALSE,TRUE
+1,46,Psychic,Psywave,FALSE,TRUE
+1,47,Normal,Explosion,TRUE,TRUE
+1,48,Rock,Rock Slide,TRUE,TRUE
+1,49,Normal,Tri Attack,TRUE,TRUE
+2,01,Fighting,Dynamic Punch,TRUE,TRUE
+2,02,Normal,Headbutt,TRUE,TRUE
+2,03,Ghost,Curse,FALSE,TRUE
+2,04,Rock,Rollout,TRUE,TRUE
+2,05,Normal,Roar,FALSE,TRUE
+2,07,Electric,Zap Cannon,TRUE,TRUE
+2,08,Fighting,Rock Smash,TRUE,TRUE
+2,10,Normal,Hidden Power,TRUE,TRUE
+2,11,Fire,Sunny Day,FALSE,TRUE
+2,12,Normal,Sweet Scent,FALSE,TRUE
+2,13,Normal,Snore,TRUE,TRUE
+2,16,Ice,Icy Wind,TRUE,TRUE
+2,17,Normal,Protect,FALSE,TRUE
+2,18,Water,Rain Dance,FALSE,TRUE
+2,19,Grass,Giga Drain,TRUE,TRUE
+2,21,Normal,Frustration,FALSE,FALSE
+2,23,Steel,Iron Tail,TRUE,TRUE
+2,24,Dragon,Dragon Breath,TRUE,TRUE
+2,27,Normal,Return,FALSE,TRUE
+2,30,Ghost,Shadow Ball,TRUE,TRUE
+2,31,Ground,Mud-Slap,FALSE,TRUE
+2,32,Normal,Double Team,FALSE,TRUE
+2,33,Ice,Ice Punch,TRUE,TRUE
+2,34,Normal,Swagger,FALSE,TRUE
+2,35,Normal,Sleep Talk,FALSE,FALSE
+2,36,Poison,Sludge Bomb,TRUE,TRUE
+2,37,Rock,Sandstorm,FALSE,TRUE
+2,40,Normal,Defense Curl,FALSE,TRUE
+2,41,Electric,Thunder Punch,TRUE,TRUE
+2,43,Fighting,Detect,FALSE,TRUE
+2,45,Normal,Attract,FALSE,TRUE
+2,46,Dark,Thief,TRUE,TRUE
+2,47,Steel,Steel Wing,TRUE,TRUE
+2,48,Fire,Fire Punch,TRUE,TRUE
+2,49,Bug,Fury Cutter,TRUE,TRUE
+3,02,Dragon,Dragon Claw,TRUE,TRUE
+3,03,Water,Water Pulse,TRUE,TRUE
+3,04,Psychic,Calm Mind,FALSE,TRUE
+3,07,Ice,Hail,FALSE,TRUE
+3,08,Fighting,Bulk Up,FALSE,TRUE
+3,09,Grass,Bullet Seed,TRUE,TRUE
+3,12,Dark,Taunt,FALSE,TRUE
+3,16,Psychic,Light Screen,FALSE,TRUE
+3,20,Normal,Safeguard,FALSE,TRUE
+3,31,Fighting,Brick Break,TRUE,TRUE
+3,34,Electric,Shock Wave,TRUE,TRUE
+3,35,Fire,Flamethrower,TRUE,TRUE
+3,39,Rock,Rock Tomb,TRUE,TRUE
+3,40,Flying,Aerial Ace,TRUE,TRUE
+3,41,Dark,Torment,FALSE,TRUE
+3,42,Normal,Facade,TRUE,TRUE
+3,43,Normal,Secret Power,TRUE,TRUE
+3,49,Dark,Snatch,FALSE,TRUE
+3,50,Fire,Overheat,TRUE,TRUE
+4,51,Flying,Roost,FALSE,TRUE
+4,52,Fighting,Focus Blast,TRUE,TRUE
+4,53,Grass,Energy Ball,TRUE,TRUE
+4,54,Normal,False Swipe,TRUE,TRUE
+4,55,Water,Brine,TRUE,TRUE
+4,57,Electric,Charge Beam,TRUE,TRUE
+4,59,Dragon,Dragon Pulse,TRUE,TRUE
+4,60,Fighting,Drain Punch,TRUE,TRUE
+4,61,Fire,Will-O-Wisp,FALSE,TRUE
+4,62,Bug,Silver Wind,TRUE,TRUE
+4,63,Dark,Embargo,FALSE,TRUE
+4,65,Ghost,Shadow Claw,TRUE,TRUE
+4,66,Dark,Payback,TRUE,TRUE
+4,68,Normal,Giga Impact,TRUE,TRUE
+4,69,Rock,Rock Polish,FALSE,TRUE
+4,70,Normal,Flash,FALSE,FALSE
+4,71,Rock,Stone Edge,TRUE,TRUE
+4,72,Ice,Avalanche,TRUE,TRUE
+4,74,Steel,Gyro Ball,FALSE,TRUE
+4,76,Rock,Stealth Rock,FALSE,TRUE
+4,78,Normal,Captivate,FALSE,TRUE
+4,79,Dark,Dark Pulse,TRUE,TRUE
+4,81,Bug,X-Scissor,TRUE,TRUE
+4,84,Poison,Poison Jab,TRUE,TRUE
+4,86,Grass,Grass Knot,FALSE,TRUE
+4,88,Flying,Pluck,TRUE,TRUE
+4,89,Bug,U-turn,TRUE,TRUE
+4,91,Steel,Flash Cannon,TRUE,TRUE
+5,01,Dark,Hone Claws,FALSE,TRUE
+5,03,Psychic,Psyshock,TRUE,TRUE
+5,09,Poison,Venoshock,TRUE,TRUE
+5,34,Poison,Sludge Wave,TRUE,TRUE
+5,43,Fire,Flame Charge,TRUE,TRUE
+5,49,Normal,Echoed Voice,TRUE,TRUE
+5,55,Water,Scald,TRUE,TRUE
+5,59,Fire,Incinerate,TRUE,TRUE
+5,60,Dark,Quash,FALSE,FALSE
+5,62,Flying,Acrobatics,TRUE,TRUE
+5,67,Normal,Retaliate,TRUE,TRUE
+5,72,Electric,Volt Switch,TRUE,TRUE
+5,76,Bug,Struggle Bug,TRUE,TRUE
+5,78,Ground,Bulldoze,TRUE,TRUE
+5,79,Ice,Frost Breath,TRUE,TRUE
+5,82,Dragon,Dragon Tail,TRUE,TRUE
+5,83,Normal,Work Up,FALSE,TRUE
+5,93,Electric,Wild Charge,TRUE,TRUE
+5,95,Dark,Snarl,TRUE,TRUE
+6,83,Bug,Infestation,TRUE,TRUE
+6,96,Normal,Nature Power,TRUE,TRUE
+6,98,Fighting,Power-Up Punch,TRUE,TRUE
+6,99,Fairy,Dazzling Gleam,TRUE,TRUE
+6,100,Normal,Confide,FALSE,FALSE
+7,28,Bug,Leech Life,TRUE,TRUE
+7,59,Dark,Brutal Swing,TRUE,TRUE
+7,67,Steel,Smart Strike,TRUE,TRUE
+7,70,Ice,Aurora Veil,FALSE,FALSE
+7,76,Flying,Fly,TRUE,TRUE
+7,94,Water,Surf,TRUE,TRUE
+7,98,Water,Waterfall,TRUE,TRUE
+8,07,Bug,Pin Missile,TRUE,TRUE
+8,10,Grass,Magical Leaf,TRUE,TRUE
+8,12,Grass,Solar Blade,TRUE,TRUE
+8,13,Fire,Fire Spin,TRUE,TRUE
+8,16,Normal,Screech,FALSE,TRUE
+8,29,Fairy,Charm,FALSE,TRUE
+8,36,Water,Whirlpool,TRUE,TRUE
+8,37,Dark,Beat Up,FALSE,TRUE
+8,42,Fighting,Revenge,TRUE,TRUE
+8,45,Water,Dive,TRUE,TRUE
+8,47,Dark,Fake Tears,FALSE,TRUE
+8,49,Ground,Sand Tomb,TRUE,TRUE
+8,51,Ice,Icicle Spear,TRUE,TRUE
+8,52,Flying,Bounce,TRUE,TRUE
+8,53,Ground,Mud Shot,TRUE,TRUE
+8,54,Rock,Rock Blast,TRUE,TRUE
+8,58,Dark,Assurance,TRUE,TRUE
+8,66,Electric,Thunder Fang,TRUE,TRUE
+8,67,Ice,Ice Fang,TRUE,TRUE
+8,68,Fire,Fire Fang,TRUE,TRUE
+8,69,Psychic,Psycho Cut,TRUE,TRUE
+8,72,Psychic,Magic Room,FALSE,TRUE
+8,73,Poison,Cross Poison,TRUE,TRUE
+8,77,Ghost,Hex,TRUE,TRUE
+8,82,Electric,Electroweb,TRUE,TRUE
+8,83,Water,Razor Shell,TRUE,TRUE
+8,84,Normal,Tail Slap,TRUE,TRUE
+8,86,Ghost,Phantom Force,TRUE,TRUE
+8,87,Fairy,Draining Kiss,TRUE,TRUE
+8,88,Grass,Grassy Terrain,FALSE,TRUE
+8,89,Fairy,Misty Terrain,FALSE,TRUE
+8,90,Electric,Electric Terrain,FALSE,TRUE
+8,91,Psychic,Psychic Terrain,FALSE,TRUE
+8,92,Fire,Mystical Fire,TRUE,TRUE
+8,93,Electric,Eerie Impulse,FALSE,TRUE
+8,95,Flying,Air Slash,TRUE,TRUE
+8,98,Ground,Stomping Tantrum,TRUE,TRUE
+8,99,Dragon,Breaking Swipe,TRUE,TRUE
+9,004,Psychic,Agility,FALSE,TRUE
+9,012,Fighting,Low Kick,TRUE,TRUE
+9,013,Poison,Acid Spray,TRUE,TRUE
+9,016,Psychic,Psybeam,TRUE,TRUE
+9,017,Ghost,Confuse Ray,FALSE,TRUE
+9,019,Fairy,Disarming Voice,TRUE,TRUE
+9,020,Grass,Trailblaze,TRUE,TRUE
+9,021,Bug,Pounce,TRUE,TRUE
+9,022,Water,Chilling Water,TRUE,TRUE
+9,026,Poison,Poison Tail,TRUE,TRUE
+9,031,Steel,Metal Claw,TRUE,TRUE
+9,040,Flying,Air Cutter,TRUE,TRUE
+9,042,Ghost,Night Shade,FALSE,TRUE
+9,052,Ice,Snowscape,FALSE,TRUE
+9,059,Psychic,Zen Headbutt,TRUE,TRUE
+9,062,Dark,Foul Play,FALSE,TRUE
+9,063,Psychic,Psychic Fangs,TRUE,TRUE
+9,071,Grass,Seed Bomb,TRUE,TRUE
+9,072,Electric,Electro Ball,FALSE,TRUE
+9,089,Fighting,Body Press,TRUE,TRUE
+9,090,Ground,Spikes,FALSE,TRUE
+9,091,Poison,Toxic Spikes,FALSE,TRUE
+9,099,Steel,Iron Head,TRUE,TRUE
+9,100,Dragon,Dragon Dance,FALSE,TRUE
+9,101,Rock,Power Gem,TRUE,TRUE
+9,102,Poison,Gunk Shot,TRUE,TRUE
+9,104,Steel,Iron Defense,FALSE,TRUE
+9,106,Ground,Drill Run,TRUE,TRUE
+9,108,Dark,Crunch,TRUE,TRUE
+9,109,Psychic,Trick,FALSE,TRUE
+9,110,Water,Liquidation,TRUE,TRUE
+9,112,Fighting,Aura Sphere,TRUE,TRUE
+9,117,Normal,Hyper Voice,TRUE,TRUE
+9,118,Fire,Heat Wave,TRUE,TRUE
+9,121,Steel,Heavy Slam,FALSE,TRUE
+9,122,Normal,Encore,FALSE,TRUE
+9,124,Ice,Ice Spinner,TRUE,TRUE
+9,127,Fairy,Play Rough,TRUE,TRUE
+9,128,Psychic,Amnesia,FALSE,TRUE
+9,131,Bug,Pollen Puff,TRUE,TRUE
+9,133,Ground,Earth Power,TRUE,TRUE
+9,134,Fighting,Reversal,FALSE,TRUE
+9,140,Dark,Nasty Plot,FALSE,TRUE
+9,142,Water,Hydro Pump,TRUE,TRUE
+9,144,Fire,Fire Pledge,TRUE,TRUE
+9,145,Water,Water Pledge,TRUE,TRUE
+9,146,Grass,Grass Pledge,TRUE,TRUE
+9,153,Fire,Blast Burn,TRUE,TRUE
+9,154,Water,Hydro Cannon,TRUE,TRUE
+9,155,Grass,Frenzy Plant,TRUE,TRUE
+9,156,Dragon,Outrage,TRUE,TRUE
+9,159,Grass,Leaf Storm,TRUE,TRUE
+9,160,Flying,Hurricane,TRUE,TRUE
+9,162,Bug,Bug Buzz,TRUE,TRUE
+9,164,Flying,Brave Bird,TRUE,TRUE
+9,165,Fire,Flare Blitz,TRUE,TRUE
+9,167,Fighting,Close Combat,TRUE,TRUE
+9,169,Dragon,Draco Meteor,TRUE,TRUE
+9,170,Steel,Steel Beam,TRUE,FALSE
+9,171,Normal,Tera Blast,FALSE,TRUE
+9,174,Ice,Haze,FALSE,TRUE
+9,181,Dark,Knock Off,TRUE,TRUE
+9,182,Bug,Bug Bite,TRUE,TRUE
+9,183,Normal,Super Fang,FALSE,TRUE
+9,184,Fighting,Vacuum Wave,TRUE,FALSE
+9,185,Bug,Lunge,TRUE,TRUE
+9,186,Ground,High Horsepower,TRUE,TRUE
+9,194,Grass,Grassy Glide,TRUE,FALSE
+9,195,Fire,Burning Jealousy,TRUE,FALSE
+9,196,Water,Flip Turn,TRUE,TRUE
+9,197,Flying,Dual Wingbeat,TRUE,TRUE
+9,198,Ghost,Poltergeist,FALSE,FALSE
+9,199,Dark,Lash Out,TRUE,FALSE
+9,200,Dragon,Scale Shot,TRUE,FALSE
+9,201,Fairy,Misty Explosion,TRUE,FALSE
+9,205,Normal,Endeavor,FALSE,TRUE
+9,206,Grass,Petal Blizzard,TRUE,TRUE
+9,209,Water,Muddy Water,TRUE,TRUE
+9,210,Electric,Supercell Slam,TRUE,FALSE
+9,212,Ice,Triple Axel,TRUE,TRUE
+9,215,Ground,Scorching Sands,TRUE,TRUE
+9,216,Flying,Feather Dance,FALSE,TRUE
+9,217,Psychic,Future Sight,TRUE,TRUE
+9,218,Psychic,Expanding Force,TRUE,FALSE
+9,219,Bug,Skitter Smack,TRUE,FALSE
+9,220,Rock,Meteor Beam,TRUE,TRUE
+9,221,Dark,Throat Chop,TRUE,TRUE
+9,223,Steel,Metal Sound,FALSE,TRUE
+9,225,Steel,Hard Press,FALSE,TRUE
+9,227,Fairy,Alluring Voice,TRUE,TRUE
+9,228,Psychic,Psychic Noise,TRUE,FALSE
+9,229,Fighting,Upper Hand,TRUE,FALSE
