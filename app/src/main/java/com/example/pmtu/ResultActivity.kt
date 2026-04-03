@@ -30,7 +30,9 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
 import com.google.gson.Gson
@@ -58,6 +60,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var evolutionsContainer: LinearLayout
     private lateinit var preEvolutionsContainer: LinearLayout
     private lateinit var movesLayout: LinearLayout
+    private lateinit var settingsButton: ImageView
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
     private var pendingTTS: String? = null
@@ -67,6 +70,12 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var currentTeamIndex: Int? = null
     private val moveTypeCache = mutableMapOf<String, String>()
     private val moveIgnoreCache = mutableMapOf<String, Boolean>()
+
+    private val statusListener = { status: HttpSyncService.Status, _: String? ->
+        if (status == HttpSyncService.Status.CONNECTED) {
+            syncViaHttp()
+        }
+    }
 
     companion object {
         private var enemyPokemon: PokemonInfo? = null
@@ -114,6 +123,44 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
+        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+        HttpSyncService.onDataReceived = { json ->
+            lifecycleScope.launch {
+                try {
+                    val data = Gson().fromJson(json, HttpSyncService.SyncData::class.java)
+                    if (data.type == "SYNC") {
+                        val own = data.ownPokemonJson?.let { Gson().fromJson(it, PokemonInfo::class.java) }
+                        val enemy = data.enemyPokemonJson?.let { Gson().fromJson(it, PokemonInfo::class.java) }
+                        
+                        // Switch them for the slave device
+                        enemyPokemon = own
+                        ownPokemon = enemy
+                        
+                        showDice(false)
+                        refreshMoves()
+                        updateTeamView()
+                        updateAddRemoveButton()
+                        updatePokedexButtonText()
+                        
+                        ownPokemon?.let { p ->
+                            val artUrl = if (p.artUrl.isNotEmpty()) p.artUrl else "https://www.serebii.net/pokemon/art/${p.id}.png"
+                            downloadImage(artUrl, p.spriteUrl)
+                        }
+                        enemyPokemon?.let { p ->
+                            updateEnemySprite(p.spriteUrl)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("SYNC", "Error parsing received data", e)
+                }
+            }
+        }
+        HttpSyncService.addStatusListener(statusListener)
+
         loadTeamData()
 
         val rootLayout = FrameLayout(this)
@@ -128,6 +175,25 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         )
+
+        // Top bar with Settings
+        val topBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            setPadding(16, 16, 64, 16) // Increased right padding for curved edges
+        }
+        
+        settingsButton = ImageView(this).apply {
+            // Using a system icon for now
+            setImageResource(android.R.drawable.ic_menu_preferences)
+            layoutParams = LinearLayout.LayoutParams(80, 80)
+            setOnClickListener {
+                startActivity(Intent(this@ResultActivity, SettingsActivity::class.java))
+            }
+        }
+        topBar.addView(settingsButton)
+        mainContainer.addView(topBar)
 
         // Team Layout (Horizontal)
         teamContainer = LinearLayout(this)
@@ -360,9 +426,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             } else {
                 clearEnemy()
             }
-            // update moves
             refreshMoves()
             updateTeamView()
+            syncViaHttp()
         }
         enemyLayout.addView(switchToEnemyButton)
 
@@ -392,7 +458,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 get_pokedex(search_string, poke_sprite_url, poke_url)
             }
         } else if (teamPokemon.any { it != null }) {
-            // Select first available team member if no scan
             val firstIndex = teamPokemon.indexOfFirst { it != null }
             if (firstIndex != -1) {
                 teamPokemon[firstIndex]?.let { 
@@ -401,12 +466,21 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
         }
         
-        // Show existing enemy sprite if any
         enemyPokemon?.let { 
             updateEnemySprite(it.spriteUrl)
         }
         updatePokedexButtonText()
         updateAddRemoveButton()
+    }
+
+    private fun syncViaHttp() {
+        if (HttpSyncService.isMaster) {
+            HttpSyncService.sendData(HttpSyncService.SyncData(
+                type = "SYNC",
+                ownPokemonJson = Gson().toJson(ownPokemon),
+                enemyPokemonJson = Gson().toJson(enemyPokemon)
+            ))
+        }
     }
 
     private fun handleTMScan(scannedText: String) {
@@ -448,6 +522,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             refreshMoves()
                             saveTeamData()
                             updateTeamView()
+                            syncViaHttp()
                             Toast.makeText(this@ResultActivity, "TM Added: $attackName", Toast.LENGTH_SHORT).show()
                         }
                         break
@@ -463,7 +538,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun saveTeamData() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Ensure all base64 strings are updated before saving
                 teamPokemon.forEach { pokemon ->
                     if (pokemon?.spriteBitmap != null && pokemon.spriteBase64 == null) {
                         pokemon.spriteBase64 = bitmapToBase64(pokemon.spriteBitmap!!)
@@ -486,7 +560,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 val loadedTeam: Array<PokemonInfo?> = Gson().fromJson(json, type)
                 teamPokemon = loadedTeam
                 
-                // Restore bitmaps
                 teamPokemon.forEach { pokemon ->
                     if (pokemon?.spriteBase64 != null) {
                         pokemon.spriteBitmap = base64ToBitmap(pokemon.spriteBase64!!)
@@ -584,6 +657,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         updateAddRemoveButton()
         updateEvolutionViews()
         updateTeamView()
+        syncViaHttp()
     }
 
     private fun updateEvolutionViews() {
@@ -968,6 +1042,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             updateTeamView()
             updateAddRemoveButton()
             updateEvolutionViews()
+            syncViaHttp()
         } else {
             textView.text = "Error reading Pokédex"
         }
@@ -1012,7 +1087,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         speakerIv.setPadding(8, 8, 8, 8)
         speakerIv.setOnClickListener {
             val searchResult = search_moves(moveName).toString()
-            // Remove curly brackets, dice notation, and numbers for TTS
             val textToSpeak = searchResult
                 .replace(Regex("\\{.*?\\}"), "")
                 .replace(Regex("\\d+d\\d+"), "")
@@ -1065,6 +1139,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 refreshMoves()
                 saveTeamData()
                 updateTeamView()
+                syncViaHttp()
             }
             row.addView(deleteIv)
         }
@@ -1091,6 +1166,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         showDice(false)
                         refreshMoves()
                         saveTeamData()
+                        syncViaHttp()
                     }
                     diceContainer.addView(diceIv)
                 } catch (e: Exception) {
@@ -1167,7 +1243,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             val bitmap = BitmapFactory.decodeStream(inputStream)
             iv.setImageBitmap(bitmap)
         } catch (e: Exception) {
-            // Fallback to small text if icon missing
             val tv = TextView(this)
             tv.text = cleanType
             tv.textSize = 8f
@@ -1184,6 +1259,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         enemyTypesContainer.removeAllViews()
         refreshMoves()
         updateTeamView()
+        syncViaHttp()
     }
 
     private fun readEnemyData(scannedText: String) {
@@ -1201,6 +1277,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 updateEnemySprite(poke_sprite_url)
                 refreshMoves()
                 updateTeamView()
+                syncViaHttp()
             }
         }
     }
@@ -1401,6 +1478,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             tts?.stop()
             tts?.shutdown()
         }
+        HttpSyncService.removeStatusListener(statusListener)
+        HttpSyncService.stopAll()
         super.onDestroy()
     }
 }
