@@ -25,7 +25,6 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
 
     private lateinit var languageGroup: RadioGroup
     private lateinit var masterButton: Button
-    private lateinit var slaveButton: Button
     private lateinit var disconnectButton: Button
     private lateinit var closeButton: Button
     private lateinit var statusTv: TextView
@@ -121,16 +120,6 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         }
         rootLayout.addView(masterButton)
 
-        slaveButton = Button(this).apply {
-            text = "Connect as Slave (Scan QR)"
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { bottomMargin = 16 }
-            setOnClickListener { startSlave() }
-        }
-        rootLayout.addView(slaveButton)
-
         disconnectButton = Button(this).apply {
             text = "Disconnect Sync"
             layoutParams = LinearLayout.LayoutParams(
@@ -206,27 +195,12 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         }
         
         HttpSyncService.startAsMaster()
-        val bitmap = generateQRCode(ip)
+        val bitmap = generateQRCode("pmtu_connect$ip")
         if (bitmap != null) {
             qrImageView.setImageBitmap(bitmap)
             qrImageView.visibility = View.VISIBLE
         }
-        Toast.makeText(this, "Master mode started. Scan the QR code with the slave device.", Toast.LENGTH_LONG).show()
-    }
-
-    private fun startSlave() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), 1)
-            return
-        }
-        
-        qrImageView.visibility = View.GONE
-        scannerView = ZXingScannerView(this)
-        val index = rootLayout.indexOfChild(qrImageView)
-        rootLayout.addView(scannerView, if (index != -1) index else rootLayout.childCount - 2)
-        scannerView?.setResultHandler(this)
-        scannerView?.startCamera()
-        Toast.makeText(this, "Scanning for Master's QR code...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Master mode started. Scan the QR code with the other device.", Toast.LENGTH_LONG).show()
     }
 
     private fun stopScanner() {
@@ -238,10 +212,7 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
     }
 
     override fun handleResult(rawResult: com.google.zxing.Result?) {
-        val ip = rawResult?.text
-        if (ip != null) {
-            HttpSyncService.startAsSlave(ip)
-        }
+        // Scanner is no longer used in SettingsActivity for connection
         stopScanner()
     }
 

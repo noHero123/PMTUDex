@@ -108,7 +108,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (result.resultCode == Activity.RESULT_OK) {
             val scannedText = result.data?.getStringExtra("SCANNED_TEXT")
             if (scannedText != null) {
-                if (scannedText.startsWith("t", ignoreCase = true)) {
+                if (scannedText.startsWith("pmtu_connect", ignoreCase = true)) {
+                    val ip = scannedText.substring("pmtu_connect".length)
+                    HttpSyncService.startAsSlave(ip)
+                    Toast.makeText(this, "Connecting to Master at $ip...", Toast.LENGTH_SHORT).show()
+                } else if (scannedText.startsWith("t", ignoreCase = true)) {
                     handleTMScan(scannedText)
                 } else if (scannedText.firstOrNull()?.isDigit() == true) {
                     val number = scannedText
@@ -145,6 +149,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         updateTeamView()
                         updateAddRemoveButton()
                         updatePokedexButtonText()
+                        updateEvolutionViews()
                         
                         ownPokemon?.let { p ->
                             val artUrl = if (p.artUrl.isNotEmpty()) p.artUrl else "https://www.serebii.net/pokemon/art/${p.id}.png"
@@ -445,7 +450,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         // Scanned Text
         val scannedText = intent.getStringExtra("SCANNED_TEXT")
         if (scannedText != null) {
-            if (scannedText.startsWith("t", ignoreCase = true)) {
+            if (scannedText.startsWith("pmtu_connect", ignoreCase = true)) {
+                val ip = scannedText.substring("pmtu_connect".length)
+                HttpSyncService.startAsSlave(ip)
+                Toast.makeText(this, "Connecting to Master at $ip...", Toast.LENGTH_SHORT).show()
+            } else if (scannedText.startsWith("t", ignoreCase = true)) {
                 handleTMScan(scannedText)
             } else if (scannedText.firstOrNull()?.isDigit() == true) {
                 val number = scannedText
@@ -695,6 +704,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
 
             withContext(Dispatchers.Main) {
+                evolutionsContainer.removeAllViews()
+                preEvolutionsContainer.removeAllViews()
                 evos.forEach { addEvoSprite(it, evolutionsContainer) }
                 preEvos.forEach { addEvoSprite(it, preEvolutionsContainer) }
             }
