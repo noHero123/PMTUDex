@@ -403,7 +403,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         } catch (e: Exception) {
             Log.e("UI", "Error loading trash icon", e)
         }
-        val trashParams = LinearLayout.LayoutParams(60, 60)
+        val trashParams = LinearLayout.LayoutParams(100, 100)
         trashParams.leftMargin = 8
         clearEnemyButton.layoutParams = trashParams
         clearEnemyButton.visibility = View.GONE
@@ -473,13 +473,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         } else if (teamPokemon.any { it != null }) {
             val firstIndex = teamPokemon.indexOfFirst { it != null }
             if (firstIndex != -1) {
-                teamPokemon[firstIndex]?.let { 
+                teamPokemon[firstIndex]?.let {
                     selectPokemon(it, firstIndex)
                 }
             }
         }
         
-        enemyPokemon?.let { 
+        enemyPokemon?.let {
             updateEnemySprite(it.spriteUrl)
         }
         updatePokedexButtonText()
@@ -497,6 +497,14 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (lang != currentLanguage) {
             currentLanguage = lang
             updateAllPokemonData()
+            updateTtsLanguage(lang)
+        }
+    }
+
+    private fun updateTtsLanguage(lang: String) {
+        if (tts != null) {
+            val locale = if (lang == "de") Locale.GERMAN else Locale.ENGLISH
+            tts?.setLanguage(locale)
         }
     }
 
@@ -537,7 +545,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             val data = scannedText.substring(1)
             val parts = data.split("_")
             if (parts.size != 2) return
-            
+
             val gen = parts[0]
             val number = parts[1]
 
@@ -550,15 +558,15 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         val attackType = columns[2].replace("{", "").replace("}", "").trim()
                         val attackName = columns[3]
                         val isStabCsv = columns[4].trim().equals("TRUE", ignoreCase = true)
-                        
+
                         val pType1 = own.type1.replace("{", "").replace("}", "").trim()
                         val pType2 = own.type2.replace("{", "").replace("}", "").trim()
-                        
-                        val isRealStab = isStabCsv && (attackType.equals(pType1, ignoreCase = true) || 
+
+                        val isRealStab = isStabCsv && (attackType.equals(pType1, ignoreCase = true) ||
                                                       (pType2 != "None" && attackType.equals(pType2, ignoreCase = true)))
-                        
+
                         val moveName = if (isRealStab) "$attackName (S)" else attackName
-                        
+
                         withContext(Dispatchers.Main) {
                             own.move3 = moveName
                             refreshMoves()
@@ -601,7 +609,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 val type = object : TypeToken<Array<PokemonInfo?>>() {}.type
                 val loadedTeam: Array<PokemonInfo?> = Gson().fromJson(json, type)
                 teamPokemon = loadedTeam
-                
+
                 teamPokemon.forEach { pokemon ->
                     if (pokemon?.spriteBase64 != null) {
                         pokemon.spriteBitmap = base64ToBitmap(pokemon.spriteBase64!!)
@@ -654,7 +662,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
         addRemoveButton.visibility = View.VISIBLE
-        
+
         if (currentTeamIndex != null) {
             addRemoveButton.text = "-"
             addRemoveButton.setOnClickListener { removeFromTeam() }
@@ -672,7 +680,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         ownPokemon = pokemon
         currentTeamIndex = index
         val artUrl = if (pokemon.artUrl.isNotEmpty()) pokemon.artUrl else "https://www.serebii.net/pokemon/art/${pokemon.id}.png"
-        
+
         lifecycleScope.launch {
             if (artUrl.isNotEmpty()) {
                 val artBitmap = loadCachedBitmap(artUrl)
@@ -718,13 +726,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 while (reader.readLine().also { line = it } != null) {
                     val columns = line?.split(",") ?: continue
                     if (columns.isEmpty()) continue
-                    
+
                     if (columns[0] == currentId) {
                         for (i in 1 until columns.size) {
                             if (columns[i].isNotEmpty()) evos.add(columns[i].removeSurrounding("\""))
                         }
                     }
-                    
+
                     for (i in 1 until columns.size) {
                         if (columns[i] == currentId) {
                             preEvos.add(columns[0].removeSurrounding("\""))
@@ -771,27 +779,29 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun fetchMoveData(moveName: String): Pair<String?, Boolean> {
+    private fun fetchMoveData(moveName: String): Triple<String?, Boolean, String?> {
         if (moveTypeCache.containsKey(moveName)) {
-            return Pair(moveTypeCache[moveName], moveIgnoreCache[moveName] ?: false)
+            return Triple(moveTypeCache[moveName], moveIgnoreCache[moveName] ?: false, null)
         }
-        
+
         try {
-            val moveFiles = assets.list("")?.filter { it.startsWith("PMTU Moves") } ?: return Pair(null, false)
+            val moveFiles = assets.list("")?.filter { it.startsWith("PMTU Moves") } ?: return Triple(null, false, null)
             for (fileName in moveFiles) {
                 val reader = assets.open(fileName).bufferedReader(Charsets.UTF_8)
                 var line: String?
                 while (reader.readLine().also { line = it } != null) {
                     val lin2 = line?.trim()?.removeSurrounding("\"")
                     val columns = lin2?.split(",") ?: continue
+
                     val filename = columns[10]
                     if (filename.equals(moveName, ignoreCase = true)) {
                         val type = columns[0]
                         val ignores = if (columns.size > 17) columns[17].contains("{W Ignore}", ignoreCase = true) else false
+                        val wurfel = if (columns.size > 1) columns[1] else null
                         moveTypeCache[moveName] = type
                         moveIgnoreCache[moveName] = ignores
                         reader.close()
-                        return Pair(type, ignores)
+                        return Triple(type, ignores, wurfel)
                     }
                 }
                 reader.close()
@@ -799,7 +809,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         } catch (e: Exception) {
             Log.e("Moves", "Error searching move data", e)
         }
-        return Pair(null, false)
+        return Triple(null, false, null)
     }
 
     private fun calculateMoveEffectiveness(moveType: String?, ignores: Boolean, defType1: String, defType2: String): Int {
@@ -811,44 +821,44 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun getTeamMemberEffectiveness(pokemon: PokemonInfo, enemy: PokemonInfo): Int {
         val move1Data = fetchMoveData(pokemon.move1)
         val move2Data = fetchMoveData(pokemon.move2)
-        val move3Data = pokemon.move3?.let { fetchMoveData(it.split(" (S)")[0]) } ?: Pair(null, false)
-        
+        val move3Data = pokemon.move3?.let { fetchMoveData(it.split(" (S)")[0]) } ?: Triple(null, false, null)
+
         var hasSuper = false
         var hasNeutral = false
-        
-        fun check(data: Pair<String?, Boolean>) {
-            val (moveType, ignores) = data
+
+        fun check(data: Triple<String?, Boolean, String?>) {
+            val (moveType, ignores, _) = data
             val total = calculateMoveEffectiveness(moveType, ignores, enemy.type1, enemy.type2)
             if (total > 0) hasSuper = true
             if (total >= 0) hasNeutral = true
         }
-        
+
         check(move1Data)
         check(move2Data)
         check(move3Data)
-        
+
         return if (hasSuper) 1 else if (!hasNeutral) -1 else 0
     }
 
     private fun isEnemyDangerous(enemy: PokemonInfo, target: PokemonInfo): Int {
         val move1Data = fetchMoveData(enemy.move1)
         val move2Data = fetchMoveData(enemy.move2)
-        val move3Data = enemy.move3?.let { fetchMoveData(it.split(" (S)")[0]) } ?: Pair(null, false)
-        
+        val move3Data = enemy.move3?.let { fetchMoveData(it.split(" (S)")[0]) } ?: Triple( null,  false, null)
+
         var hasSuper = false
         var hasNeutral = false
-        
-        fun check(data: Pair<String?, Boolean>) {
-            val (moveType, ignores) = data
+
+        fun check(data: Triple<String?, Boolean, String?>) {
+            val (moveType, ignores, _) = data
             val total = calculateMoveEffectiveness(moveType, ignores, target.type1, target.type2)
             if (total > 0) hasSuper = true
             if (total >= 0) hasNeutral = true
         }
-        
+
         check(move1Data)
         check(move2Data)
         check(move3Data)
-        
+
         return if (hasSuper) 1 else if (!hasNeutral) -1 else 0
     }
 
@@ -862,7 +872,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
             val slotIv = ImageView(this)
             val ivParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-            
+
             if (currentTeamIndex == i) {
                 slotContainer.setBackgroundColor(Color.BLUE)
                 ivParams.setMargins(8, 8, 8, 8)
@@ -873,7 +883,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             slotIv.layoutParams = ivParams
             slotIv.scaleType = ImageView.ScaleType.FIT_CENTER
             slotContainer.addView(slotIv)
-            
+
             val pokemon = teamPokemon[i]
 
             if (isSelectingSlot) {
@@ -888,7 +898,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
                     if (enemyPokemon != null) {
                         val ownEff = getTeamMemberEffectiveness(pokemon, enemyPokemon!!)
-                        
+
                         if (ownEff == 1) {
                             val greenArrow = ImageView(this)
                             try {
@@ -923,9 +933,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             selectPokemon(pokemon, i)
                         }
                     } else if (pokemon.id.isNotEmpty()) {
-                        val sUrl = if (pokemon.spriteUrl.isNotEmpty()) pokemon.spriteUrl 
+                        val sUrl = if (pokemon.spriteUrl.isNotEmpty()) pokemon.spriteUrl
                                   else "https://www.serebii.net/pokedex-sv/icon/${pokemon.id}.png"
-                        
+
                         lifecycleScope.launch {
                             val bitmap = loadCachedBitmap(sUrl) ?: withContext(Dispatchers.IO) {
                                 try {
@@ -959,7 +969,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            val result = tts?.setLanguage(Locale.GERMAN)
+            val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+            val lang = prefs.getString("language", "en") ?: "en"
+            val locale = if (lang == "de") Locale.GERMAN else Locale.ENGLISH
+            val result = tts?.setLanguage(locale)
             if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                 Log.e("TTS", "The Language specified is not supported!")
             } else {
@@ -1032,7 +1045,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         try {
             val reader = assets.open("pokedex.csv").bufferedReader(Charsets.UTF_8)
             var line: String?
-            
+
             while (reader.readLine().also { line = it } != null) {
                 val lin2 = line?.drop(1)?.dropLast(1)
                 val rawColumns = lin2?.split("\",\"") ?: continue
@@ -1150,7 +1163,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         } catch (e: Exception) {
             Log.e("UI", "Error loading speaker icon", e)
         }
-        val sParams = LinearLayout.LayoutParams(60, 60)
+        val sParams = LinearLayout.LayoutParams(100, 100)
         sParams.rightMargin = 16
         speakerIv.layoutParams = sParams
         speakerIv.setPadding(8, 8, 8, 8)
@@ -1160,11 +1173,33 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 .replace(Regex("\\{.*?\\}"), "")
                 .replace(Regex("\\d+d\\d+"), "")
                 .replace(Regex("\\d+"), "")
-                .replace(Regex("[^a-zA-Z\\s]"), "")
+                //.replace(Regex("[^a-zA-Z\\s]"), "")
                 .trim()
             speakOut(textToSpeak)
         }
         row.addView(speakerIv)
+
+        // Find wurfel from move data
+        val cleanNameLookup = moveName.split(" (S)")[0].trim()
+        val moveData = fetchMoveData(cleanNameLookup)
+        val wurfel = moveData.third
+
+        // Die symbol ({d4}, {d8}, {G-Max d4}, etc.) from wurfel
+        if (wurfel != null && (wurfel.contains("d4}") || wurfel.contains("d8}"))) {
+            val dieType = if (wurfel.contains("d4}")) "d4" else "d8"
+            val dieIv = ImageView(this)
+            try {
+                val inputStream = assets.open("move_symbols/$dieType.png")
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                dieIv.setImageBitmap(bitmap)
+            } catch (e: Exception) {
+                Log.e("UI", "Error loading $dieType icon", e)
+            }
+            val dParams = LinearLayout.LayoutParams(60, 60)
+            dParams.rightMargin = 16
+            dieIv.layoutParams = dParams
+            row.addView(dieIv)
+        }
 
         val moveTv = TextView(this)
         moveTv.text = search_moves(moveName)
@@ -1173,8 +1208,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         // Effectiveness arrow
         if (enemyPokemon != null) {
-            val cleanName = moveName.split(" (S)")[0]
-            val moveData = fetchMoveData(cleanName)
+            val cleanName = moveName.split(" (S)")[0].trim()
             if (moveData.first != null) {
                 val eff = calculateMoveEffectiveness(moveData.first, moveData.second, enemyPokemon!!.type1, enemyPokemon!!.type2)
                 if (eff != 0) {
@@ -1200,7 +1234,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 val bitmap = BitmapFactory.decodeStream(inputStream)
                 deleteIv.setImageBitmap(bitmap)
             } catch (e: Exception) {}
-            val params = LinearLayout.LayoutParams(50, 50)
+            val params = LinearLayout.LayoutParams(80, 80)
             params.leftMargin = 16
             deleteIv.layoutParams = params
             deleteIv.setOnClickListener {
@@ -1219,7 +1253,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun showDice(all: Boolean) {
         diceContainer.removeAllViews()
         val level = ownPokemon?.additionalLevel ?: 0
-        
+
         if (all) {
             for (i in 0..6) {
                 val diceIv = ImageView(this)
@@ -1267,7 +1301,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             enemyTypesContainer.removeAllViews()
             return
         }
-        
+
         enemyPokemon?.let { updateEnemyTypeViews(it) }
 
         lifecycleScope.launch {
@@ -1356,9 +1390,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             val total = it.pokedexEntries.size
             if (total > 0) {
                 val current = it.nextPokedexIndex
-                var displayIndex = current 
+                var displayIndex = current
                 if (displayIndex == 0) displayIndex = total
-                
+
                 pokedexButton.text = "Pokédex ($displayIndex/$total)"
             } else {
                 pokedexButton.text = "Pokédex"
@@ -1371,9 +1405,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun search_moves(moveName: String): CharSequence {
         try {
             val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-            val lang = prefs.getString("language", "en")
+            val lang = prefs.getString("language", "en") ?: "en"
             val moveFiles = assets.list("")?.filter { it.startsWith("PMTU Moves") } ?: return ""
-            val cleanMoveName = moveName.split(" (S)")[0]
+            val cleanMoveName = moveName.split(" (S)")[0].trim()
             for (fileName in moveFiles) {
                 val reader = assets.open(fileName).bufferedReader(Charsets.UTF_8)
                 var line: String?
@@ -1382,7 +1416,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     val columns = lin2?.split(",") ?: continue
 
                     val filename = columns[10]
-                    
+
                     if ( filename.equals(cleanMoveName, ignoreCase = true)) {
                         var wurfel = columns[1]
                         if (wurfel == ""){
@@ -1395,14 +1429,14 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             powerStr = columns[4]
                         }
                         powerStr = powerStr.replace("*","")
-                        
+
                         var powerval: Int
                         if (powerStr.equals("1-2 Lvl", ignoreCase = true)) {
                             powerval = ((ownPokemon?.base_level ?: 0) + (ownPokemon?.additionalLevel ?: 0)) / 2
                         } else {
                             powerval = powerStr.toIntOrNull() ?: 0
                         }
-                        
+
                         ownPokemon?.let {
                             powerval += it.base_level + it.additionalLevel
                         }
@@ -1426,7 +1460,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                                 powerval = powerval + effectivnes
                             }
                         }
-                        
+
                         val builder = SpannableStringBuilder()
                         val cleanType = type.replace("{", "").replace("}", "").trim()
                         val typeImagePath = "$cleanType.png"
@@ -1442,11 +1476,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         } catch (e: Exception) {
                             builder.append(type).append(" ")
                         }
-                        
+
                         val start = builder.length
                         builder.append(powerval.toString())
                         val end = builder.length
-                        
+
                         if (enemyPokemon != null) {
                             if (effectivnes < 0) {
                                 builder.setSpan(ForegroundColorSpan(Color.RED), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -1456,7 +1490,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         }
 
                         val finalMoveName = if (lang == "de") columns[16] else columns[2]
-                        builder.append(" ").append(finalMoveName).append(" ").append(wurfel)
+                        val cleanWurfel = wurfel.replace(Regex("\\{.*?d[48]\\}"), "").trim()
+                        builder.append(" ").append(finalMoveName).append(" ").append(cleanWurfel)
                         reader.close()
                         return builder
                     }
