@@ -141,12 +141,15 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 try {
                     val data = Gson().fromJson(json, HttpSyncService.SyncData::class.java)
                     if (data.type == "SYNC") {
-                        val own = data.ownPokemonJson?.let { Gson().fromJson(it, PokemonInfo::class.java) }
-                        val enemy = data.enemyPokemonJson?.let { Gson().fromJson(it, PokemonInfo::class.java) }
+                        val receivedOwn = data.ownPokemonJson?.let { Gson().fromJson(it, PokemonInfo::class.java) }
+                        val receivedEnemy = data.enemyPokemonJson?.let { Gson().fromJson(it, PokemonInfo::class.java) }
                         
-                        // Switch them for the slave device
-                        enemyPokemon = own
-                        ownPokemon = enemy
+                        if (HttpSyncService.isMaster) {
+                            enemyPokemon = receivedOwn
+                        } else {
+                            enemyPokemon = receivedOwn
+                            ownPokemon = receivedEnemy
+                        }
                         
                         showDice(false)
                         refreshMoves()
@@ -524,7 +527,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun syncViaHttp() {
-        if (HttpSyncService.isMaster) {
+        if (HttpSyncService.connectionStatus == HttpSyncService.Status.CONNECTED) {
             HttpSyncService.sendData(HttpSyncService.SyncData(
                 type = "SYNC",
                 ownPokemonJson = Gson().toJson(ownPokemon),
@@ -1173,7 +1176,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 .replace(Regex("\\{.*?\\}"), "")
                 .replace(Regex("\\d+d\\d+"), "")
                 .replace(Regex("\\d+"), "")
-                //.replace(Regex("[^a-zA-Z\\s]"), "")
                 .trim()
             speakOut(textToSpeak)
         }
