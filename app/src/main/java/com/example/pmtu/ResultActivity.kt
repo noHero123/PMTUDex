@@ -64,6 +64,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
     private var pendingTTS: String? = null
+    private var currentLanguage: String? = null
     
     private var ownPokemon: PokemonInfo? = null
     private var isSelectingSlot = false
@@ -86,11 +87,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     data class PokemonInfo(
         val id: String,
-        val name: String,
+        var name: String,
         val base_level: Int,
         val type1: String,
         val type2: String,
-        val pokedexEntries: List<String>,
+        var pokedexEntries: List<String>,
         val move1: String,
         val move2: String,
         val spriteUrl: String,
@@ -126,6 +127,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        currentLanguage = prefs.getString("language", "en")
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -480,6 +484,35 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         updatePokedexButtonText()
         updateAddRemoveButton()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        checkLanguageUpdate()
+    }
+
+    private fun checkLanguageUpdate() {
+        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val lang = prefs.getString("language", "en") ?: "en"
+        if (lang != currentLanguage) {
+            currentLanguage = lang
+            updateAllPokemonData()
+        }
+    }
+
+    private fun updateAllPokemonData() {
+        ownPokemon?.let { updatePokemonFields(it) }
+        enemyPokemon?.let { updatePokemonFields(it) }
+        teamPokemon.forEach { it?.let { p -> updatePokemonFields(p) } }
+        
+        // Refresh UI
+        refreshMoves()
+        updatePokedexButtonText()
+    }
+
+    private fun updatePokemonFields(pokemon: PokemonInfo) {
+        pokemon.name = get_german_name(pokemon.id)
+        pokemon.pokedexEntries = get_german_text(pokemon.id)
     }
 
     private fun syncViaHttp() {
@@ -950,7 +983,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun get_german_text(number:String): MutableList<String>{
-        val reader = assets.open("pokedex_ger.csv").bufferedReader(Charsets.UTF_8)
+
+        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val lang = prefs.getString("language", "en")
+        val filename = if (lang == "de") "pokedex_ger.csv" else "pokedex_en.csv"
+        val reader = assets.open(filename).bufferedReader(Charsets.UTF_8)
         var line: String?
         val entries = mutableListOf<String>()
         while (reader.readLine().also { line = it } != null) {
@@ -969,6 +1006,28 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         return entries
     }
+
+    private fun get_german_name(number:String): String{
+        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val lang = prefs.getString("language", "en")
+
+        val filename = if (lang == "de") "pokedex_ger.csv" else "pokedex_en.csv"
+        val reader = assets.open(filename).bufferedReader(Charsets.UTF_8)
+        var line: String?
+        while (reader.readLine().also { line = it } != null) {
+            val lin2 = line?.drop(1)?.dropLast(1)
+            val rawColumns = lin2?.split("\",\"") ?: continue
+            val columns = rawColumns.map { it.trim().removeSurrounding("\"") }
+
+            if (columns.isNotEmpty() && columns[0] == number) {
+                return columns[1]
+                break
+            }
+        }
+        return "Missing No."
+    }
+
+
     private fun findPokemonByNumber(number: String, spriteUrl: String, artUrl: String): PokemonInfo? {
         try {
             val reader = assets.open("pokedex.csv").bufferedReader(Charsets.UTF_8)
@@ -982,8 +1041,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 if (columns.isNotEmpty() && columns[0] == number) {
                     val entries = get_german_text(number)
                     entries.shuffle()
-                    var poke_name = columns[1].replace("{G-Max}", "Gigadynamax ").replace("{MEGA}", "Mega")
-                    poke_name = poke_name.replace("<i>", "").replace("</i>", "")
+                    val poke_name = get_german_name(number)
                     val info = PokemonInfo(
                         id = number,
                         name = poke_name,
@@ -1312,6 +1370,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun search_moves(moveName: String): CharSequence {
         try {
+            val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+            val lang = prefs.getString("language", "en")
             val moveFiles = assets.list("")?.filter { it.startsWith("PMTU Moves") } ?: return ""
             val cleanMoveName = moveName.split(" (S)")[0]
             for (fileName in moveFiles) {
@@ -1394,8 +1454,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                                 builder.setSpan(ForegroundColorSpan(Color.GREEN), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                             }
                         }
-                        
-                        builder.append(" ").append(columns[16]).append(" ").append(wurfel)
+
+                        val finalMoveName = if (lang == "de") columns[16] else columns[2]
+                        builder.append(" ").append(finalMoveName).append(" ").append(wurfel)
                         reader.close()
                         return builder
                     }
