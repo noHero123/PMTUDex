@@ -96,6 +96,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     Toast.makeText(this, "Connecting to Master at $ip...", Toast.LENGTH_SHORT).show()
                 } else if (scannedText.startsWith("t", ignoreCase = true)) {
                     handleTMScan(scannedText)
+                } else if (scannedText.startsWith("iz", ignoreCase = true)) {
+                    handleZMoveScan(scannedText)
                 } else if (scannedText.firstOrNull()?.isDigit() == true) {
                     val number = scannedText
                     val spriteUrl = "https://www.serebii.net/pokedex-sv/icon/$number.png"
@@ -447,6 +449,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 Toast.makeText(this, "Connecting to Master at $ip...", Toast.LENGTH_SHORT).show()
             } else if (scannedText.startsWith("t", ignoreCase = true)) {
                 handleTMScan(scannedText)
+            } else if (scannedText.startsWith("iz", ignoreCase = true)) {
+                handleZMoveScan(scannedText)
             } else if (scannedText.firstOrNull()?.isDigit() == true) {
                 val number = scannedText
                 var url_number = number
@@ -557,6 +561,30 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
         } catch (e: Exception) {
             Log.e("TM", "Error handling TM scan", e)
+        }
+    }
+
+    private fun handleZMoveScan(scannedText: String) {
+        val own = ownPokemon
+        if (own == null) {
+            Toast.makeText(this, "Scan a Pokémon first!", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val moveName = moveRepository.getZMoveForPokemon(scannedText, own)
+            withContext(Dispatchers.Main) {
+                if (moveName != null) {
+                    own.move3 = moveName
+                    refreshMoves()
+                    saveTeamData()
+                    updateTeamView()
+                    syncViaHttp()
+                    Toast.makeText(this@ResultActivity, "Z-Move Added: $moveName", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this@ResultActivity, "Pokémon cannot learn this Z-Move", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 

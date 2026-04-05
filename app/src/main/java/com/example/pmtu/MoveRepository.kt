@@ -9,28 +9,31 @@ class MoveRepository(private val context: Context) {
 
     data class MoveData(
         val type: String?,
-        val ignores: Boolean,
         val wurfel: String?,
         val powerStr: String?,
         val powerStab: String?,
         val englishName: String?,
-        val germanName: String?
+        val germanName: String?,
+        val ignores: Boolean = false
     )
 
     fun fetchMoveData(moveName: String): MoveData? {
         val cleanName = moveName.split(" (S)")[0].trim()
         try {
-            val moveFiles = context.assets.list("")?.filter { it.startsWith("PMTU Moves") } ?: return null
+            val assetFiles = context.assets.list("") ?: return null
+            val moveFiles = assetFiles.filter { it.startsWith("PMTU Moves") }
+            
             for (fileName in moveFiles) {
                 val reader = context.assets.open(fileName).bufferedReader(Charsets.UTF_8)
                 var line: String?
                 while (reader.readLine().also { line = it } != null) {
-                    val lin2 = line?.trim()?.removeSurrounding("\"")
-                    val columns = lin2?.split(",") ?: continue
+                    val columns = parseCsvLine(line ?: "")
                     if (columns.size < 11) continue
 
-                    val filename = columns[10]
-                    if (filename.equals(cleanName, ignoreCase = true)) {
+                    val moveNameCol = columns[2]
+                    val filenameCol = columns[10]
+                    
+                    if (moveNameCol.equals(cleanName, ignoreCase = true) || filenameCol.equals(cleanName, ignoreCase = true)) {
                         val type = columns[0]
                         val ignores = if (columns.size > 17) columns[17].contains("{W Ignore}", ignoreCase = true) else false
                         val wurfel = if (columns.size > 1) columns[1] else null
@@ -57,6 +60,27 @@ class MoveRepository(private val context: Context) {
             Log.e("MoveRepository", "Error searching move data", e)
         }
         return null
+    }
+
+    private fun parseCsvLine(line: String): List<String> {
+        val result = mutableListOf<String>()
+        var current = StringBuilder()
+        var inQuotes = false
+        var i = 0
+        while (i < line.length) {
+            val c = line[i]
+            if (c == '\"') {
+                inQuotes = !inQuotes
+            } else if (c == ',' && !inQuotes) {
+                result.add(current.toString().trim())
+                current = StringBuilder()
+            } else {
+                current.append(c)
+            }
+            i++
+        }
+        result.add(current.toString().trim())
+        return result
     }
 
     fun calculateMoveEffectiveness(moveType: String?, ignores: Boolean, defType1: String, defType2: String): Int {
@@ -100,7 +124,7 @@ class MoveRepository(private val context: Context) {
             val reader = context.assets.open("TM Cards - TM List.csv").bufferedReader()
             var line: String?
             while (reader.readLine().also { line = it } != null) {
-                val columns = line?.split(",") ?: continue
+                val columns = parseCsvLine(line ?: "")
                 if (columns.size >= 5 && columns[0] == gen && columns[1] == number) {
                     val data = TMData(
                         type = columns[2].replace("{", "").replace("}", "").trim(),
@@ -114,6 +138,63 @@ class MoveRepository(private val context: Context) {
             reader.close()
         } catch (e: Exception) {
             Log.e("MoveRepository", "Error reading TM list", e)
+        }
+        return null
+    }
+
+    fun getZMoveForPokemon(scannedId: String, pokemon: PokemonInfo): String? {
+        try {
+            val reader = context.assets.open("zmoves.csv").bufferedReader()
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                val columns = parseCsvLine(line ?: "")
+                if (columns.isEmpty()) continue
+
+                if (columns[0].equals(scannedId, ignoreCase = true)) {
+                    val defaultZMoveName = if (columns.size > 1) columns[1] else ""
+                    
+                    val baseZMoveData = fetchMoveData(defaultZMoveName) ?: run {
+                        Log.e("MoveRepository", "Default Z-Move data not found: $defaultZMoveName")
+                        null
+                    }
+                    val zType = baseZMoveData?.type ?: run {
+                        reader.close()
+                        return null
+                    }
+                    
+                    val m1Data = fetchMoveData(pokemon.move1)
+                    val m2Data = fetchMoveData(pokemon.move2)
+                    
+                    val knowsRequiredType = zType.equals(m1Data?.type, ignoreCase = true) || 
+                                           zType.equals(m2Data?.type, ignoreCase = true)
+                    
+                    if (!knowsRequiredType) {
+                        reader.close()
+                        return null
+                    }
+
+                    var finalMoveName = defaultZMoveName
+                    if (columns.size > 2) {
+                        for (i in 2 until columns.size) {
+                            val altEntry = columns[i]
+                            val commaIdx = altEntry.indexOf(",")
+                            if (commaIdx != -1) {
+                                val pId = altEntry.substring(0, commaIdx).trim()
+                                val altMoveName = altEntry.substring(commaIdx + 1).trim()
+                                if (pId == pokemon.id) {
+                                    finalMoveName = altMoveName
+                                    break
+                                }
+                            }
+                        }
+                    }
+                    reader.close()
+                    return finalMoveName
+                }
+            }
+            reader.close()
+        } catch (e: Exception) {
+            Log.e("MoveRepository", "Error in getZMoveForPokemon", e)
         }
         return null
     }
