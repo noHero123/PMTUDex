@@ -16,7 +16,10 @@ data class PokemonInfo(
     var spriteBase64: String? = null,
     var additionalLevel: Int = 0,
     var nextPokedexIndex: Int = 0,
-    var move3: String? = null
+    var move3: String? = null,
+    var teraType: String? = null,
+    var isTeraActivated: Boolean = false,
+    var typeEnhancerType: String? = null
 ) {
     @Transient
     var spriteBitmap: Bitmap? = null

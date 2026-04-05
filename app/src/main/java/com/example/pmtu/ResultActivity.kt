@@ -6,6 +6,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
@@ -98,6 +100,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     handleTMScan(scannedText)
                 } else if (scannedText.startsWith("iz", ignoreCase = true)) {
                     handleZMoveScan(scannedText)
+                } else if (scannedText.startsWith("it", ignoreCase = true)) {
+                    handleTeraScan(scannedText)
+                } else if (scannedText.startsWith("ie", ignoreCase = true)) {
+                    handleTypeEnhancerScan(scannedText)
                 } else if (scannedText.firstOrNull()?.isDigit() == true) {
                     val number = scannedText
                     val spriteUrl = "https://www.serebii.net/pokedex-sv/icon/$number.png"
@@ -451,6 +457,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 handleTMScan(scannedText)
             } else if (scannedText.startsWith("iz", ignoreCase = true)) {
                 handleZMoveScan(scannedText)
+            } else if (scannedText.startsWith("it", ignoreCase = true)) {
+                handleTeraScan(scannedText)
+            } else if (scannedText.startsWith("ie", ignoreCase = true)) {
+                handleTypeEnhancerScan(scannedText)
             } else if (scannedText.firstOrNull()?.isDigit() == true) {
                 val number = scannedText
                 var url_number = number
@@ -551,6 +561,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
                     withContext(Dispatchers.Main) {
                         own.move3 = moveName
+                        own.teraType = null
+                        own.isTeraActivated = false
+                        own.typeEnhancerType = null
                         refreshMoves()
                         saveTeamData()
                         updateTeamView()
@@ -576,6 +589,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             withContext(Dispatchers.Main) {
                 if (moveName != null) {
                     own.move3 = moveName
+                    own.teraType = null
+                    own.isTeraActivated = false
+                    own.typeEnhancerType = null
                     refreshMoves()
                     saveTeamData()
                     updateTeamView()
@@ -586,6 +602,51 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 }
             }
         }
+    }
+
+    private fun handleTeraScan(scannedText: String) {
+        val own = ownPokemon
+        if (own == null) {
+            Toast.makeText(this, "Scan a Pokémon first!", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val type = scannedText.substring(2)
+        // Ensure first letter is uppercase for file matching (e.g., "Bug")
+        val formattedType = type.lowercase().replaceFirstChar { it.uppercase() }
+        
+        own.teraType = formattedType
+        own.isTeraActivated = false
+        own.move3 = null
+        own.typeEnhancerType = null
+        
+        refreshMoves()
+        saveTeamData()
+        updateTeamView()
+        syncViaHttp()
+        Toast.makeText(this, "Tera Type $formattedType attached", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun handleTypeEnhancerScan(scannedText: String) {
+        val own = ownPokemon
+        if (own == null) {
+            Toast.makeText(this, "Scan a Pokémon first!", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val type = scannedText.substring(2)
+        val formattedType = type.lowercase().replaceFirstChar { it.uppercase() }
+        
+        own.typeEnhancerType = formattedType
+        own.move3 = null
+        own.teraType = null
+        own.isTeraActivated = false
+        
+        refreshMoves()
+        saveTeamData()
+        updateTeamView()
+        syncViaHttp()
+        Toast.makeText(this, "Type Enhancer $formattedType attached", Toast.LENGTH_SHORT).show()
     }
 
     private fun saveTeamData() {
@@ -957,10 +1018,133 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         ownPokemon?.let {
             addMoveRow(it.move1)
             addMoveRow(it.move2)
+            
+            if (it.teraType != null) {
+                addTeraRow(it)
+            }
+            if (it.typeEnhancerType != null) {
+                addTypeEnhancerRow(it)
+            }
+
             if (it.move3 != null) {
                 addMoveRow(it.move3!!, isTM = true)
             }
         }
+    }
+
+    private fun addTeraRow(pokemon: PokemonInfo) {
+        val row = LinearLayout(this)
+        row.orientation = LinearLayout.HORIZONTAL
+        row.gravity = Gravity.CENTER
+        val rowParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = 16
+            bottomMargin = 16
+        }
+        row.layoutParams = rowParams
+
+        val teraIv = ImageView(this)
+        val type = pokemon.teraType ?: ""
+        try {
+            val fileName = "Tera Type - $type.png"
+            val inputStream = assets.open("tera/$fileName")
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            teraIv.setImageBitmap(bitmap)
+        } catch (e: Exception) {
+            Log.e("Tera", "Error loading tera symbol for $type", e)
+        }
+
+        val size = 150
+        teraIv.layoutParams = LinearLayout.LayoutParams(size, size)
+        
+        if (!pokemon.isTeraActivated) {
+            val matrix = ColorMatrix()
+            matrix.setSaturation(0f)
+            teraIv.colorFilter = ColorMatrixColorFilter(matrix)
+        } else {
+            teraIv.colorFilter = null
+        }
+
+        teraIv.setOnClickListener {
+            pokemon.isTeraActivated = !pokemon.isTeraActivated
+            refreshMoves()
+            saveTeamData()
+            syncViaHttp()
+        }
+        
+        row.addView(teraIv)
+        
+        val deleteIv = ImageView(this)
+        try {
+            val inputStream = assets.open("trash.png")
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            deleteIv.setImageBitmap(bitmap)
+        } catch (e: Exception) {}
+        val dParams = LinearLayout.LayoutParams(80, 80)
+        dParams.leftMargin = 32
+        deleteIv.layoutParams = dParams
+        deleteIv.setOnClickListener {
+            pokemon.teraType = null
+            pokemon.isTeraActivated = false
+            refreshMoves()
+            saveTeamData()
+            updateTeamView()
+            syncViaHttp()
+        }
+        row.addView(deleteIv)
+
+        movesLayout.addView(row)
+    }
+
+    private fun addTypeEnhancerRow(pokemon: PokemonInfo) {
+        val row = LinearLayout(this)
+        row.orientation = LinearLayout.HORIZONTAL
+        row.gravity = Gravity.CENTER
+        val rowParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = 16
+            bottomMargin = 16
+        }
+        row.layoutParams = rowParams
+
+        val enhancerIv = ImageView(this)
+        val type = pokemon.typeEnhancerType ?: ""
+        try {
+            val fileName = "TypeEnhancer$type.png"
+            val inputStream = assets.open("type_enhancer/$fileName")
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            enhancerIv.setImageBitmap(bitmap)
+        } catch (e: Exception) {
+            Log.e("TypeEnhancer", "Error loading enhancer for $type", e)
+        }
+
+        val size = 150
+        enhancerIv.layoutParams = LinearLayout.LayoutParams(size, size)
+        row.addView(enhancerIv)
+        
+        val deleteIv = ImageView(this)
+        try {
+            val inputStream = assets.open("trash.png")
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            deleteIv.setImageBitmap(bitmap)
+        } catch (e: Exception) {}
+        val dParams = LinearLayout.LayoutParams(80, 80)
+        dParams.leftMargin = 32
+        deleteIv.layoutParams = dParams
+        deleteIv.setOnClickListener {
+            pokemon.typeEnhancerType = null
+            refreshMoves()
+            saveTeamData()
+            updateTeamView()
+            syncViaHttp()
+        }
+        row.addView(deleteIv)
+
+        movesLayout.addView(row)
     }
 
     private fun addMoveRow(moveName: String, isTM: Boolean = false) {
@@ -1211,14 +1395,30 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         powerStr = powerStr?.replace("*", "") ?: "0"
 
         var powerval: Int
+        var originalBasePower: Int
         if (powerStr.equals("1-2 Lvl", ignoreCase = true)) {
-            powerval = ((ownPokemon?.base_level ?: 0) + (ownPokemon?.additionalLevel ?: 0)) / 2
+            originalBasePower = ((ownPokemon?.base_level ?: 0) + (ownPokemon?.additionalLevel ?: 0)) / 2
+            powerval = originalBasePower
         } else {
-            powerval = powerStr.toIntOrNull() ?: 0
+            originalBasePower = powerStr.toIntOrNull() ?: 0
+            powerval = originalBasePower
         }
 
         ownPokemon?.let {
             powerval += it.base_level + it.additionalLevel
+        }
+        
+        // Tera boost logic
+        ownPokemon?.let { pokemon ->
+            val cleanType = moveData.type?.replace("{", "")?.replace("}", "")?.trim() ?: ""
+            if (pokemon.isTeraActivated && pokemon.teraType?.equals(cleanType, ignoreCase = true) == true) {
+                powerval += 1
+            }
+            
+            // Type Enhancer boost logic
+            if (pokemon.typeEnhancerType?.equals(cleanType, ignoreCase = true) == true && originalBasePower >= 1) {
+                powerval += 1
+            }
         }
 
         var effectiveness = 0
