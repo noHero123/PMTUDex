@@ -20,7 +20,8 @@ data class PokemonInfo(
     var teraType: String? = null,
     var isTeraActivated: Boolean = false,
     var typeEnhancerType: String? = null,
-    var baseItem: String? = null
+    var baseItem: String? = null,
+    var isTrainerPokemon: Boolean = false
 ) {
     @Transient
     var spriteBitmap: Bitmap? = null

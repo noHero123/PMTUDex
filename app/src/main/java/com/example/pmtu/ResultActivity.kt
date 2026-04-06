@@ -74,6 +74,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private lateinit var pokedexRepository: PokedexRepository
     private lateinit var moveRepository: MoveRepository
+    private lateinit var trainerRepository: TrainerRepository
 
     private val statusListener = { status: HttpSyncService.Status, _: String? ->
         if (status == HttpSyncService.Status.CONNECTED) {
@@ -96,6 +97,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     val ip = scannedText.substring("pmtu_connect".length)
                     HttpSyncService.startAsSlave(ip)
                     Toast.makeText(this, "Connecting to Master at $ip...", Toast.LENGTH_SHORT).show()
+                } else if (scannedText.startsWith("tr", ignoreCase = true)) {
+                    handleTrainerScan(scannedText)
                 } else if (scannedText.startsWith("t", ignoreCase = true)) {
                     handleTMScan(scannedText)
                 } else if (scannedText.startsWith("iz", ignoreCase = true)) {
@@ -121,6 +124,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         pokedexRepository = PokedexRepository(this)
         moveRepository = MoveRepository(this)
+        trainerRepository = TrainerRepository(this)
 
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         currentLanguage = prefs.getString("language", "en")
@@ -455,6 +459,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 val ip = scannedText.substring("pmtu_connect".length)
                 HttpSyncService.startAsSlave(ip)
                 Toast.makeText(this, "Connecting to Master at $ip...", Toast.LENGTH_SHORT).show()
+            } else if (scannedText.startsWith("tr", ignoreCase = true)) {
+                handleTrainerScan(scannedText)
             } else if (scannedText.startsWith("t", ignoreCase = true)) {
                 handleTMScan(scannedText)
             } else if (scannedText.startsWith("iz", ignoreCase = true)) {
@@ -551,6 +557,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             Toast.makeText(this, "Scan a Pokémon first!", Toast.LENGTH_SHORT).show()
             return
         }
+        if (own.isTrainerPokemon) {
+            Toast.makeText(this, "Trainer Pokémon cannot attach cards!", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         try {
             val data = scannedText.substring(1)
@@ -593,6 +603,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             Toast.makeText(this, "Scan a Pokémon first!", Toast.LENGTH_SHORT).show()
             return
         }
+        if (own.isTrainerPokemon) {
+            Toast.makeText(this, "Trainer Pokémon cannot attach cards!", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         lifecycleScope.launch(Dispatchers.IO) {
             val moveName = moveRepository.getZMoveForPokemon(scannedText, own)
@@ -618,6 +632,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             Toast.makeText(this, "Scan a Pokémon first!", Toast.LENGTH_SHORT).show()
             return
         }
+        if (own.isTrainerPokemon) {
+            Toast.makeText(this, "Trainer Pokémon cannot attach cards!", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         val type = scannedText.substring(2)
         val formattedType = type.lowercase().replaceFirstChar { it.uppercase() }
@@ -636,6 +654,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val own = ownPokemon
         if (own == null) {
             Toast.makeText(this, "Scan a Pokémon first!", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (own.isTrainerPokemon) {
+            Toast.makeText(this, "Trainer Pokémon cannot attach cards!", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -658,6 +680,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             Toast.makeText(this, "Scan a Pokémon first!", Toast.LENGTH_SHORT).show()
             return
         }
+        if (own.isTrainerPokemon) {
+            Toast.makeText(this, "Trainer Pokémon cannot attach cards!", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         val itemName = scannedText.substring(2)
         
@@ -669,6 +695,44 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         updateTeamView()
         syncViaHttp()
         Toast.makeText(this, "Item $itemName attached", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun handleTrainerScan(scannedText: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val trainerData = trainerRepository.getTrainerPokemon(scannedText)
+            if (trainerData != null) {
+                val spriteUrl = "https://www.serebii.net/pokedex-sv/icon/${trainerData.pokemonId}.png"
+                val artUrl = "https://www.serebii.net/pokemon/art/${trainerData.pokemonId}.png"
+                
+                val info = pokedexRepository.findPokemonByNumber(trainerData.pokemonId, spriteUrl, artUrl)
+                if (info != null) {
+                    val trainerPokemon = info.copy(
+                        base_level = trainerData.baseLevel,
+                        move1 = trainerData.move1,
+                        move2 = trainerData.move2,
+                        move3 = trainerData.move3,
+                        isTrainerPokemon = true,
+                        teraType = null,
+                        isTeraActivated = false,
+                        typeEnhancerType = null,
+                        baseItem = null
+                    )
+                    withContext(Dispatchers.Main) {
+                        ownPokemon = trainerPokemon
+                        currentTeamIndex = null
+                        downloadImage(artUrl, spriteUrl)
+                        showDice(false)
+                        refreshMoves()
+                        updatePokedexButtonText()
+                        updateTeamView()
+                        updateAddRemoveButton()
+                        updateEvolutionViews()
+                        syncViaHttp()
+                        Toast.makeText(this@ResultActivity, "Trainer Pokemon scanned!", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
     }
 
     private fun saveTeamData() {
@@ -800,6 +864,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         evolutionsContainer.removeAllViews()
         preEvolutionsContainer.removeAllViews()
         val currentId = ownPokemon?.id ?: return
+        if (ownPokemon?.isTrainerPokemon == true) return
 
         lifecycleScope.launch(Dispatchers.IO) {
             val (evos, preEvos) = pokedexRepository.getEvolutions(currentId)
@@ -1304,7 +1369,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
         }
 
-        if (isTM) {
+        if (isTM && ownPokemon?.isTrainerPokemon != true) {
             val deleteIv = ImageView(this)
             try {
                 val inputStream = assets.open("trash.png")
