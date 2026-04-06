@@ -104,6 +104,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     handleTeraScan(scannedText)
                 } else if (scannedText.startsWith("ie", ignoreCase = true)) {
                     handleTypeEnhancerScan(scannedText)
+                } else if (scannedText.startsWith("ib", ignoreCase = true)) {
+                    handleBaseItemScan(scannedText)
                 } else if (scannedText.firstOrNull()?.isDigit() == true) {
                     val number = scannedText
                     val spriteUrl = "https://www.serebii.net/pokedex-sv/icon/$number.png"
@@ -461,6 +463,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 handleTeraScan(scannedText)
             } else if (scannedText.startsWith("ie", ignoreCase = true)) {
                 handleTypeEnhancerScan(scannedText)
+            } else if (scannedText.startsWith("ib", ignoreCase = true)) {
+                handleBaseItemScan(scannedText)
             } else if (scannedText.firstOrNull()?.isDigit() == true) {
                 val number = scannedText
                 var url_number = number
@@ -533,6 +537,14 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun clearOtherAttachments(pokemon: PokemonInfo) {
+        pokemon.move3 = null
+        pokemon.teraType = null
+        pokemon.isTeraActivated = false
+        pokemon.typeEnhancerType = null
+        pokemon.baseItem = null
+    }
+
     private fun handleTMScan(scannedText: String) {
         val own = ownPokemon
         if (own == null) {
@@ -560,10 +572,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     val moveName = if (isRealStab) "${tmData.name} (S)" else tmData.name
 
                     withContext(Dispatchers.Main) {
+                        clearOtherAttachments(own)
                         own.move3 = moveName
-                        own.teraType = null
-                        own.isTeraActivated = false
-                        own.typeEnhancerType = null
                         refreshMoves()
                         saveTeamData()
                         updateTeamView()
@@ -588,10 +598,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             val moveName = moveRepository.getZMoveForPokemon(scannedText, own)
             withContext(Dispatchers.Main) {
                 if (moveName != null) {
+                    clearOtherAttachments(own)
                     own.move3 = moveName
-                    own.teraType = null
-                    own.isTeraActivated = false
-                    own.typeEnhancerType = null
                     refreshMoves()
                     saveTeamData()
                     updateTeamView()
@@ -612,13 +620,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
 
         val type = scannedText.substring(2)
-        // Ensure first letter is uppercase for file matching (e.g., "Bug")
         val formattedType = type.lowercase().replaceFirstChar { it.uppercase() }
         
+        clearOtherAttachments(own)
         own.teraType = formattedType
-        own.isTeraActivated = false
-        own.move3 = null
-        own.typeEnhancerType = null
         
         refreshMoves()
         saveTeamData()
@@ -637,16 +642,33 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val type = scannedText.substring(2)
         val formattedType = type.lowercase().replaceFirstChar { it.uppercase() }
         
+        clearOtherAttachments(own)
         own.typeEnhancerType = formattedType
-        own.move3 = null
-        own.teraType = null
-        own.isTeraActivated = false
         
         refreshMoves()
         saveTeamData()
         updateTeamView()
         syncViaHttp()
         Toast.makeText(this, "Type Enhancer $formattedType attached", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun handleBaseItemScan(scannedText: String) {
+        val own = ownPokemon
+        if (own == null) {
+            Toast.makeText(this, "Scan a Pokémon first!", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val itemName = scannedText.substring(2)
+        
+        clearOtherAttachments(own)
+        own.baseItem = itemName
+        
+        refreshMoves()
+        saveTeamData()
+        updateTeamView()
+        syncViaHttp()
+        Toast.makeText(this, "Item $itemName attached", Toast.LENGTH_SHORT).show()
     }
 
     private fun saveTeamData() {
@@ -1025,6 +1047,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             if (it.typeEnhancerType != null) {
                 addTypeEnhancerRow(it)
             }
+            if (it.baseItem != null) {
+                addBaseItemRow(it)
+            }
 
             if (it.move3 != null) {
                 addMoveRow(it.move3!!, isTM = true)
@@ -1137,6 +1162,55 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         deleteIv.layoutParams = dParams
         deleteIv.setOnClickListener {
             pokemon.typeEnhancerType = null
+            refreshMoves()
+            saveTeamData()
+            updateTeamView()
+            syncViaHttp()
+        }
+        row.addView(deleteIv)
+
+        movesLayout.addView(row)
+    }
+
+    private fun addBaseItemRow(pokemon: PokemonInfo) {
+        val row = LinearLayout(this)
+        row.orientation = LinearLayout.HORIZONTAL
+        row.gravity = Gravity.CENTER
+        val rowParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = 16
+            bottomMargin = 16
+        }
+        row.layoutParams = rowParams
+
+        val itemIv = ImageView(this)
+        val itemName = pokemon.baseItem ?: ""
+        try {
+            val fileName = "$itemName.png"
+            val inputStream = assets.open("base_items/$fileName")
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            itemIv.setImageBitmap(bitmap)
+        } catch (e: Exception) {
+            Log.e("BaseItem", "Error loading base item for $itemName", e)
+        }
+
+        val size = 150
+        itemIv.layoutParams = LinearLayout.LayoutParams(size, size)
+        row.addView(itemIv)
+        
+        val deleteIv = ImageView(this)
+        try {
+            val inputStream = assets.open("trash.png")
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            deleteIv.setImageBitmap(bitmap)
+        } catch (e: Exception) {}
+        val dParams = LinearLayout.LayoutParams(80, 80)
+        dParams.leftMargin = 32
+        deleteIv.layoutParams = dParams
+        deleteIv.setOnClickListener {
+            pokemon.baseItem = null
             refreshMoves()
             saveTeamData()
             updateTeamView()
@@ -1404,19 +1478,40 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             powerval = originalBasePower
         }
 
+        // Apply item boosts to the BASE power first where applicable
+        ownPokemon?.let { pokemon ->
+            val cleanType = moveData.type?.replace("{", "")?.replace("}", "")?.trim() ?: ""
+            
+            // Alph boost: +2 power if original > 0, capped at 4
+            if (pokemon.baseItem.equals("Alph", ignoreCase = true) && originalBasePower > 0) {
+                originalBasePower += 2
+                if (originalBasePower > 4) originalBasePower = 4
+                powerval = originalBasePower
+            }
+        }
+
+        // Add levels
         ownPokemon?.let {
             powerval += it.base_level + it.additionalLevel
         }
         
-        // Tera boost logic
+        // Final additive boosts
         ownPokemon?.let { pokemon ->
             val cleanType = moveData.type?.replace("{", "")?.replace("}", "")?.trim() ?: ""
+            
+            // Tera boost logic
             if (pokemon.isTeraActivated && pokemon.teraType?.equals(cleanType, ignoreCase = true) == true) {
                 powerval += 1
             }
             
             // Type Enhancer boost logic
-            if (pokemon.typeEnhancerType?.equals(cleanType, ignoreCase = true) == true && originalBasePower >= 1) {
+            val originalBasePowerCheck: Int = if (powerStr.equals("1-2 Lvl", ignoreCase = true)) 1 else powerStr.toIntOrNull() ?: 0
+            if (pokemon.typeEnhancerType?.equals(cleanType, ignoreCase = true) == true && originalBasePowerCheck >= 1) {
+                powerval += 1
+            }
+            
+            // Vita or Shin boost: +1 to all moves
+            if (pokemon.baseItem.equals("Vita", ignoreCase = true) || pokemon.baseItem.equals("Shin", ignoreCase = true)) {
                 powerval += 1
             }
         }
