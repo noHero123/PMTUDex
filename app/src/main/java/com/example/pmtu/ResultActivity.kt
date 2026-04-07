@@ -85,6 +85,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     companion object {
         private var enemyPokemon: PokemonInfo? = null
         private var teamPokemon = arrayOfNulls<PokemonInfo>(6)
+        private var ownWeather: String? = null
+        private var enemyWeather: String? = null
         private const val TEAM_FILE_NAME = "team_data.json"
         private const val IMAGE_DIR_NAME = "pokemon_images"
     }
@@ -109,6 +111,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     handleTypeEnhancerScan(scannedText)
                 } else if (scannedText.startsWith("ib", ignoreCase = true)) {
                     handleBaseItemScan(scannedText)
+                } else if (scannedText.startsWith("fm", ignoreCase = true)) {
+                    handleWeatherScan(scannedText)
                 } else if (scannedText.firstOrNull()?.isDigit() == true) {
                     val number = scannedText
                     val spriteUrl = "https://www.serebii.net/pokedex-sv/icon/$number.png"
@@ -144,9 +148,12 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         
                         if (HttpSyncService.isMaster) {
                             enemyPokemon = receivedOwn
+                            enemyWeather = data.ownWeather
                         } else {
                             enemyPokemon = receivedOwn
                             ownPokemon = receivedEnemy
+                            ownWeather = data.enemyWeather
+                            enemyWeather = data.ownWeather
                         }
                         
                         showDice(false)
@@ -162,6 +169,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         }
                         enemyPokemon?.let { p ->
                             updateEnemySprite(p.spriteUrl)
+                        } ?: run {
+                            updateEnemySprite("")
                         }
                     }
                 } catch (e: Exception) {
@@ -422,6 +431,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         )
         switchToEnemyButton.setOnClickListener {
             val oldOwn = ownPokemon
+            val oldWeather = ownWeather
 
             if (enemyPokemon != null) {
                 val newPoki = enemyPokemon
@@ -431,11 +441,15 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
 
             enemyPokemon = oldOwn
+            ownWeather = enemyWeather
+            enemyWeather = oldWeather
+
             if (enemyPokemon != null) {
                 updateEnemySprite(enemyPokemon!!.spriteUrl)
             } else {
                 clearEnemy()
             }
+            showDice(false)
             refreshMoves()
             updateTeamView()
             syncViaHttp()
@@ -471,6 +485,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 handleTypeEnhancerScan(scannedText)
             } else if (scannedText.startsWith("ib", ignoreCase = true)) {
                 handleBaseItemScan(scannedText)
+            } else if (scannedText.startsWith("fm", ignoreCase = true)) {
+                handleWeatherScan(scannedText)
             } else if (scannedText.firstOrNull()?.isDigit() == true) {
                 val number = scannedText
                 var url_number = number
@@ -538,7 +554,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             HttpSyncService.sendData(HttpSyncService.SyncData(
                 type = "SYNC",
                 ownPokemonJson = Gson().toJson(ownPokemon),
-                enemyPokemonJson = Gson().toJson(enemyPokemon)
+                enemyPokemonJson = Gson().toJson(enemyPokemon),
+                ownWeather = ownWeather,
+                enemyWeather = enemyWeather
             ))
         }
     }
@@ -549,6 +567,16 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         pokemon.isTeraActivated = false
         pokemon.typeEnhancerType = null
         pokemon.baseItem = null
+    }
+
+    private fun handleWeatherScan(scannedText: String) {
+        val weatherName = scannedText.substring(2)
+        ownWeather = weatherName
+        showDice(false)
+        updateEnemySprite(enemyPokemon?.spriteUrl ?: "")
+        refreshMoves()
+        syncViaHttp()
+        Toast.makeText(this, "Weather $weatherName set", Toast.LENGTH_SHORT).show()
     }
 
     private fun handleTMScan(scannedText: String) {
@@ -863,7 +891,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun updateEvolutionViews() {
         evolutionsContainer.removeAllViews()
         preEvolutionsContainer.removeAllViews()
-        val currentId = ownPokemon?.id ?: return
+        val currentId = ownPokemon?.id ?: run {
+            evolutionsContainer.removeAllViews()
+            preEvolutionsContainer.removeAllViews()
+            return
+        }
         if (ownPokemon?.isTrainerPokemon == true) return
 
         lifecycleScope.launch(Dispatchers.IO) {
@@ -905,47 +937,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun getTeamMemberEffectiveness(pokemon: PokemonInfo, enemy: PokemonInfo): Int {
-        val move1Data = moveRepository.fetchMoveData(pokemon.move1)
-        val move2Data = moveRepository.fetchMoveData(pokemon.move2)
-        val move3Data = pokemon.move3?.let { moveRepository.fetchMoveData(it) }
-
-        var hasSuper = false
-        var hasNeutral = false
-
-        fun check(data: MoveRepository.MoveData?) {
-            if (data == null) return
-            val total = moveRepository.calculateMoveEffectiveness(data.type, data.ignores, enemy.type1, enemy.type2)
-            if (total > 0) hasSuper = true
-            if (total >= 0) hasNeutral = true
-        }
-
-        check(move1Data)
-        check(move2Data)
-        check(move3Data)
-
-        return if (hasSuper) 1 else if (!hasNeutral) -1 else 0
+        return moveRepository.getPokemonEffectiveness(pokemon, enemy)
     }
 
     private fun isEnemyDangerous(enemy: PokemonInfo, target: PokemonInfo): Int {
-        val move1Data = moveRepository.fetchMoveData(enemy.move1)
-        val move2Data = moveRepository.fetchMoveData(enemy.move2)
-        val move3Data = enemy.move3?.let { moveRepository.fetchMoveData(it) }
-
-        var hasSuper = false
-        var hasNeutral = false
-
-        fun check(data: MoveRepository.MoveData?) {
-            if (data == null) return
-            val total = moveRepository.calculateMoveEffectiveness(data.type, data.ignores, target.type1, target.type2)
-            if (total > 0) hasSuper = true
-            if (total >= 0) hasNeutral = true
-        }
-
-        check(move1Data)
-        check(move2Data)
-        check(move3Data)
-
-        return if (hasSuper) 1 else if (!hasNeutral) -1 else 0
+        return moveRepository.isPokemonDangerous(enemy, target)
     }
 
     private fun updateTeamView() {
@@ -1324,8 +1320,16 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         row.addView(speakerIv)
 
         // Find wurfel from move data
-        val moveData = moveRepository.fetchMoveData(moveName)
-        val wurfel = moveData?.wurfel
+        val result = moveRepository.calculateMovePower(
+            moveName, 
+            ownPokemon ?: return, 
+            enemyPokemon, 
+            ownWeather, 
+            enemyWeather
+        ) ?: return
+        
+        val moveData = result.moveData
+        val wurfel = moveData.wurfel
 
         // Die symbol ({d4}, {d8}, {G-Max d4}, etc.) from wurfel
         if (wurfel != null && (wurfel.contains("d4}") || wurfel.contains("d8}"))) {
@@ -1345,27 +1349,25 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
 
         val moveTv = TextView(this)
-        moveTv.text = search_moves(moveName)
+        moveTv.text = formatMoveText(result)
         moveTv.textSize = 20f
         row.addView(moveTv)
 
         // Effectiveness arrow
         if (enemyPokemon != null) {
-            if (moveData?.type != null) {
-                val eff = moveRepository.calculateMoveEffectiveness(moveData.type, moveData.ignores, enemyPokemon!!.type1, enemyPokemon!!.type2)
-                if (eff != 0) {
-                    val arrowIv = ImageView(this)
-                    val arrowPath = if (eff > 0) "arrow_green.png" else "arrow_red.png"
-                    try {
-                        val inputStream = assets.open(arrowPath)
-                        val bitmap = BitmapFactory.decodeStream(inputStream)
-                        arrowIv.setImageBitmap(bitmap)
-                    } catch (e: Exception) {}
-                    val aParams = LinearLayout.LayoutParams(40, 40)
-                    aParams.leftMargin = 16
-                    arrowIv.layoutParams = aParams
-                    row.addView(arrowIv)
-                }
+            val eff = result.effectiveness
+            if (eff != 0) {
+                val arrowIv = ImageView(this)
+                val arrowPath = if (eff > 0) "arrow_green.png" else "arrow_red.png"
+                try {
+                    val inputStream = assets.open(arrowPath)
+                    val bitmap = BitmapFactory.decodeStream(inputStream)
+                    arrowIv.setImageBitmap(bitmap)
+                } catch (e: Exception) {}
+                val aParams = LinearLayout.LayoutParams(40, 40)
+                aParams.leftMargin = 16
+                arrowIv.layoutParams = aParams
+                row.addView(arrowIv)
             }
         }
 
@@ -1434,13 +1436,44 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 Log.e("Dice", "Error loading dice image blued6_$level.png", e)
             }
         }
+
+        // Add weather icon if set
+        ownWeather?.let { weather ->
+            val weatherIv = ImageView(this)
+            try {
+                val inputStream = assets.open("Field/$weather.png")
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                weatherIv.setImageBitmap(bitmap)
+                val params = LinearLayout.LayoutParams(150, 150)
+                params.leftMargin = 32
+                weatherIv.layoutParams = params
+                diceContainer.addView(weatherIv)
+
+                val trashIv = ImageView(this)
+                val trashInputStream = assets.open("trash.png")
+                val trashBitmap = BitmapFactory.decodeStream(trashInputStream)
+                trashIv.setImageBitmap(trashBitmap)
+                val trashParams = LinearLayout.LayoutParams(80, 80)
+                trashParams.leftMargin = 8
+                trashIv.layoutParams = trashParams
+                trashIv.setOnClickListener {
+                    ownWeather = null
+                    showDice(false)
+                    refreshMoves()
+                    syncViaHttp()
+                }
+                diceContainer.addView(trashIv)
+            } catch (e: Exception) {
+                Log.e("Weather", "Error loading weather $weather", e)
+            }
+        }
     }
 
     private fun updateEnemySprite(spriteUrl: String) {
         if (spriteUrl.isEmpty()) {
             enemySpriteView.setImageDrawable(null)
             clearEnemyButton.visibility = View.GONE
-            enemyTypesContainer.removeAllViews()
+            updateEnemyTypeViews(null)
             return
         }
 
@@ -1468,11 +1501,31 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun updateEnemyTypeViews(pokemon: PokemonInfo) {
+    private fun updateEnemyTypeViews(pokemon: PokemonInfo?) {
         enemyTypesContainer.removeAllViews()
-        addTypeIcon(pokemon.type1, enemyTypesContainer)
-        if (pokemon.type2 != "None" && pokemon.type2.isNotBlank()) {
-            addTypeIcon(pokemon.type2, enemyTypesContainer)
+        
+        // Add enemy weather effect
+        enemyWeather?.let { weather ->
+            val weatherIv = ImageView(this)
+            val size = 80
+            weatherIv.layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                bottomMargin = 8
+            }
+            try {
+                val inputStream = assets.open("Field/$weather.png")
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                weatherIv.setImageBitmap(bitmap)
+                enemyTypesContainer.addView(weatherIv)
+            } catch (e: Exception) {
+                Log.e("Weather", "Error loading enemy weather $weather", e)
+            }
+        }
+
+        if (pokemon != null) {
+            addTypeIcon(pokemon.type1, enemyTypesContainer)
+            if (pokemon.type2 != "None" && pokemon.type2.isNotBlank()) {
+                addTypeIcon(pokemon.type2, enemyTypesContainer)
+            }
         }
     }
 
@@ -1501,7 +1554,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         enemyPokemon = null
         enemySpriteView.setImageDrawable(null)
         clearEnemyButton.visibility = View.GONE
-        enemyTypesContainer.removeAllViews()
+        updateEnemyTypeViews(null)
         refreshMoves()
         updateTeamView()
         syncViaHttp()
@@ -1525,77 +1578,25 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun search_moves(moveName: String): CharSequence {
+        val result = moveRepository.calculateMovePower(
+            moveName, 
+            ownPokemon ?: return "", 
+            enemyPokemon, 
+            ownWeather, 
+            enemyWeather
+        ) ?: return ""
+        return formatMoveText(result)
+    }
+
+    private fun formatMoveText(result: MoveRepository.PowerResult): CharSequence {
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         val lang = prefs.getString("language", "en") ?: "en"
-        val moveData = moveRepository.fetchMoveData(moveName) ?: return ""
-
-        var wurfel = moveData.wurfel ?: ""
-        var powerStr = if (moveName.endsWith("(S)")) moveData.powerStab else moveData.powerStr
-        powerStr = powerStr?.replace("*", "") ?: "0"
-
-        var powerval: Int
-        var originalBasePower: Int
-        if (powerStr.equals("1-2 Lvl", ignoreCase = true)) {
-            originalBasePower = ((ownPokemon?.base_level ?: 0) + (ownPokemon?.additionalLevel ?: 0)) / 2
-            powerval = originalBasePower
-        } else {
-            originalBasePower = powerStr.toIntOrNull() ?: 0
-            powerval = originalBasePower
-        }
-
-        // Apply item boosts to the BASE power first where applicable
-        ownPokemon?.let { pokemon ->
-            val cleanType = moveData.type?.replace("{", "")?.replace("}", "")?.trim() ?: ""
-            
-            // Alph boost: +2 power if original > 0, capped at 4
-            if (pokemon.baseItem.equals("Alph", ignoreCase = true) && originalBasePower > 0) {
-                originalBasePower += 2
-                if (originalBasePower > 4) originalBasePower = 4
-                powerval = originalBasePower
-            }
-        }
-
-        // Add levels
-        ownPokemon?.let {
-            powerval += it.base_level + it.additionalLevel
-        }
-        
-        // Final additive boosts
-        ownPokemon?.let { pokemon ->
-            val cleanType = moveData.type?.replace("{", "")?.replace("}", "")?.trim() ?: ""
-            
-            // Tera boost logic
-            if (pokemon.isTeraActivated && pokemon.teraType?.equals(cleanType, ignoreCase = true) == true) {
-                powerval += 1
-            }
-            
-            // Type Enhancer boost logic
-            val originalBasePowerCheck: Int = if (powerStr.equals("1-2 Lvl", ignoreCase = true)) 1 else powerStr.toIntOrNull() ?: 0
-            if (pokemon.typeEnhancerType?.equals(cleanType, ignoreCase = true) == true && originalBasePowerCheck >= 1) {
-                powerval += 1
-            }
-            
-            // Vita or Shin boost: +1 to all moves
-            if (pokemon.baseItem.equals("Vita", ignoreCase = true) || pokemon.baseItem.equals("Shin", ignoreCase = true)) {
-                powerval += 1
-            }
-        }
-
-        var effectiveness = 0
-        if (enemyPokemon != null) {
-            effectiveness = moveRepository.calculateMoveEffectiveness(moveData.type, moveData.ignores, enemyPokemon!!.type1, enemyPokemon!!.type2)
-
-            if (effectiveness == -4) effectiveness = -3
-            if (effectiveness == 4) effectiveness = 3
-            if (effectiveness < -4) {
-                powerval = 0
-            } else {
-                powerval = powerval + effectiveness
-            }
-        }
+        val moveData = result.moveData
+        val powerval = result.power
+        val effectiveness = result.effectiveness
+        val cleanType = result.cleanType
 
         val builder = SpannableStringBuilder()
-        val cleanType = moveData.type?.replace("{", "")?.replace("}", "")?.trim() ?: ""
         val typeImagePath = "$cleanType.png"
         try {
             val inputStream = assets.open(typeImagePath)
@@ -1623,6 +1624,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
 
         val finalMoveName = if (lang == "de") moveData.germanName else moveData.englishName
+        val wurfel = moveData.wurfel ?: ""
         val cleanWurfel = wurfel.replace(Regex("\\{.*?d[48]\\}"), "").trim()
         builder.append(" ").append(finalMoveName ?: "").append(" ").append(cleanWurfel)
         return builder

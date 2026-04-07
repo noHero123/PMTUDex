@@ -50,6 +50,14 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
             )
         }
 
+        val scroll = ScrollView(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        scroll.addView(rootLayout)
+
         val titleTv = TextView(this).apply {
             text = "Settings"
             textSize = 24f
@@ -94,6 +102,37 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
             prefs.edit().putString("language", lang).apply()
             Toast.makeText(this, "Language set to $lang", Toast.LENGTH_SHORT).show()
         }
+
+        // Gameplay Options
+        val optionsLabel = TextView(this).apply {
+            text = "Gameplay Options"
+            textSize = 18f
+            setPadding(0, 0, 0, 16)
+        }
+        rootLayout.addView(optionsLabel)
+
+        val immunityCheckbox = CheckBox(this).apply {
+            text = "Disable Type Immunities (0x -> -2)"
+            isChecked = prefs.getBoolean("disable_immunities", false)
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("disable_immunities", isChecked).apply()
+            }
+        }
+        rootLayout.addView(immunityCheckbox)
+
+        val speakerCheckbox = CheckBox(this).apply {
+            text = "Disable Speaker Symbols at Attacks"
+            isChecked = prefs.getBoolean("disable_speakers", false)
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("disable_speakers", isChecked).apply()
+            }
+        }
+        rootLayout.addView(speakerCheckbox)
+
+        val space = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 48)
+        }
+        rootLayout.addView(space)
 
         // Sync Section
         val btLabel = TextView(this).apply {
@@ -160,7 +199,7 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         }
         rootLayout.addView(closeButton)
 
-        setContentView(rootLayout)
+        setContentView(scroll)
         checkPermissions()
 
         HttpSyncService.onStatusChanged = { status, message ->

@@ -17,6 +17,13 @@ class MoveRepository(private val context: Context) {
         val ignores: Boolean = false
     )
 
+    data class PowerResult(
+        val power: Int,
+        val effectiveness: Int,
+        val cleanType: String,
+        val moveData: MoveData
+    )
+
     fun fetchMoveData(moveName: String): MoveData? {
         val cleanName = moveName.split(" (S)")[0].trim()
         try {
@@ -83,6 +90,173 @@ class MoveRepository(private val context: Context) {
         return result
     }
 
+    fun isStab(pokemon: PokemonInfo, type: String?): Boolean {
+        if (type == null) return false
+        val cleanType = type.replace("{", "").replace("}", "").trim()
+        val pType1 = pokemon.type1.replace("{", "").replace("}", "").trim()
+        val pType2 = pokemon.type2.replace("{", "").replace("}", "").trim()
+        
+        return cleanType.equals(pType1, ignoreCase = true) || 
+               (pType2 != "None" && cleanType.equals(pType2, ignoreCase = true))
+    }
+
+    fun calculateMovePower(
+        moveName: String,
+        pokemon: PokemonInfo,
+        enemy: PokemonInfo?,
+        ownWeather: String?,
+        enemyWeather: String?
+    ): PowerResult? {
+        val moveData = fetchMoveData(moveName) ?: return null
+
+        val isStabSuffix = moveName.endsWith("(S)")
+        var powerStr = if (isStabSuffix) moveData.powerStab else moveData.powerStr
+        powerStr = powerStr?.replace("*", "") ?: "0"
+
+        var powerval: Int
+        var originalBasePower: Int
+        // power starts with the value printed on the card
+        if (powerStr.equals("1-2 Lvl", ignoreCase = true)) {
+            originalBasePower = (pokemon.base_level + pokemon.additionalLevel) / 2
+            powerval = originalBasePower
+        } else {
+            originalBasePower = powerStr.toIntOrNull() ?: 0
+            powerval = originalBasePower
+        }
+
+        // Alph boost: +2 power if original > 0, capped at 4
+        if (pokemon.baseItem.equals("Alph", ignoreCase = true) && originalBasePower > 0 && originalBasePower < 4) {
+            originalBasePower += 2
+            if (originalBasePower > 4) {
+                originalBasePower = 4
+            }
+            powerval = originalBasePower
+        }
+
+        // Add levels
+        powerval += pokemon.base_level + pokemon.additionalLevel
+
+        val cleanType = moveData.type?.replace("{", "")?.replace("}", "")?.trim() ?: ""
+
+        // Tera boost
+        if (pokemon.isTeraActivated && pokemon.teraType?.equals(cleanType, ignoreCase = true) == true) {
+            powerval += 1
+        }
+
+        // Type Enhancer boost
+        val originalBasePowerCheck: Int = if (powerStr.equals("1-2 Lvl", ignoreCase = true)) 1 else powerStr.toIntOrNull() ?: 0
+        if (pokemon.typeEnhancerType?.equals(cleanType, ignoreCase = true) == true && originalBasePowerCheck >= 1) {
+            powerval += 1
+        }
+
+        // Weather/Terrain boosts
+        if ((ownWeather == "Electric Terrain" || enemyWeather == "Electric Terrain") && cleanType.equals("Electric", ignoreCase = true)) {
+            powerval += 1
+        }
+        if ((ownWeather == "Grassy Terrain" || enemyWeather == "Grassy Terrain") && cleanType.equals("Grass", ignoreCase = true)) {
+            powerval += 1
+        }
+        if ((ownWeather == "Psychic Terrain" || enemyWeather == "Psychic Terrain") && cleanType.equals("Psychic", ignoreCase = true)) {
+            powerval += 1
+        }
+        //rainy: boost water, reduce fire
+        if ((ownWeather == "Rainy" || enemyWeather == "Rainy") && cleanType.equals("Water", ignoreCase = true)) {
+            powerval += 1
+        }
+        if ((ownWeather == "Rainy" || enemyWeather == "Rainy") && cleanType.equals("Fire", ignoreCase = true)) {
+            powerval -= 1
+        }
+        //sunny: boost fire, reduce water
+        if ((ownWeather == "Sunny" || enemyWeather == "Sunny") && cleanType.equals("Fire", ignoreCase = true)) {
+            powerval += 1
+        }
+        if ((ownWeather == "Sunny" || enemyWeather == "Sunny") && cleanType.equals("Water", ignoreCase = true)) {
+            powerval -= 1
+        }
+        if (ownWeather == "Misty Terrain" || enemyWeather == "Misty Terrain") {
+            if (cleanType.equals("Fairy", ignoreCase = true)) {
+                powerval += 1
+            } else if (cleanType.equals("Dragon", ignoreCase = true)) {
+                powerval -= 1
+            }
+        }
+
+
+        // calculate effectiveness, after that, only stuff that is added at final attack value
+        var effectiveness = 0
+        if (enemy != null) {
+            effectiveness = calculateMoveEffectiveness(moveData.type, moveData.ignores, enemy.type1, enemy.type2)
+
+            if (effectiveness == -4) effectiveness = -3
+            if (effectiveness == 4) effectiveness = 3
+            
+            if (effectiveness < -4) {
+                powerval = -3
+            } else {
+                powerval += effectiveness
+            }
+        }
+        //stealth rock, add to final attack value
+        if (ownWeather == "Stealth Rock") {
+            var sr_change = -1
+            val pType1 = pokemon.type1.replace("{", "").replace("}", "").trim()
+            val pType2 = pokemon.type2.replace("{", "").replace("}", "").trim()
+            val sr_eff = calculateMoveEffectiveness("Rock", moveData.ignores, pType1, pType2)
+            if (sr_eff <= -1)
+            {
+                sr_change = 0
+            }
+            if (pType1 == "Rock" || pType2 == "Rock")
+            {
+                sr_change = 0
+            }
+            if (sr_eff >= 1)
+            {
+                sr_change = -2
+            }
+            powerval += sr_change
+        }
+        // Hail effect: -1 power if not Ice type, add to final attack value
+        if (ownWeather == "Hail" || enemyWeather == "Hail") {
+            val pType1 = pokemon.type1.replace("{", "").replace("}", "").trim()
+            val pType2 = pokemon.type2.replace("{", "").replace("}", "").trim()
+            if (!pType1.equals("Ice", ignoreCase = true) && !pType2.equals("Ice", ignoreCase = true)) {
+                powerval -= 1
+            }
+        }
+        // Sandy effect: -1 power if not Ground, Rock or Steel type, add to final attack value
+        if (ownWeather == "Sandy" || enemyWeather == "Sandy") {
+            val pType1 = pokemon.type1.replace("{", "").replace("}", "").trim()
+            val pType2 = pokemon.type2.replace("{", "").replace("}", "").trim()
+            var is_Ground = 1
+            var is_Rock = 1
+            var is_Steel = 1
+            if (!pType1.equals("Ground", ignoreCase = true) && !pType2.equals("Ground", ignoreCase = true)) {
+                is_Ground = 0
+            }
+            if (!pType1.equals("Rock", ignoreCase = true) && !pType2.equals("Rock", ignoreCase = true)) {
+                is_Rock = 0
+            }
+            if (!pType1.equals("Steel", ignoreCase = true) && !pType2.equals("Steel", ignoreCase = true)) {
+                is_Steel = 0
+            }
+            if(is_Ground + is_Rock + is_Steel == 0) {
+                powerval -= 1
+            }
+        }
+        // Spikes effect: -1 power but only to own side, add to final attack value
+        if (ownWeather == "Spikes") {
+            powerval -= 1
+        }
+
+        // Vita or Shin boost
+        if (pokemon.baseItem.equals("Vita", ignoreCase = true) || pokemon.baseItem.equals("Shin", ignoreCase = true)) {
+            powerval += 1
+        }
+
+        return PowerResult(powerval, effectiveness, cleanType, moveData)
+    }
+
     fun calculateMoveEffectiveness(moveType: String?, ignores: Boolean, defType1: String, defType2: String): Int {
         if (moveType == null || ignores) return 0
         return getTypeEffectiveness(moveType, defType1) + getTypeEffectiveness(moveType, defType2)
@@ -113,10 +287,39 @@ class MoveRepository(private val context: Context) {
             "Fairy" to mapOf("Steel" to 1, "Fire" to 1, "Poison" to 1, "Dragon" to 4, "Dark" to 4, "Fighting" to 4)
         )
         val type1Effectiveness = typeChart[cleanAttacker]?.get(cleanDefender) ?: 2
-        if (type1Effectiveness == 0){return -100}
+        if (type1Effectiveness == 0){
+            val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+            return if (prefs.getBoolean("disable_immunities", false)) -2 else -100
+        }
         if (type1Effectiveness == 1){return -2}
         if (type1Effectiveness == 4){return 2}
         return 0
+    }
+
+    fun getPokemonEffectiveness(pokemon: PokemonInfo, enemy: PokemonInfo): Int {
+        val move1Data = fetchMoveData(pokemon.move1)
+        val move2Data = fetchMoveData(pokemon.move2)
+        val move3Data = pokemon.move3?.let { fetchMoveData(it) }
+
+        var hasSuper = false
+        var hasNeutral = false
+
+        fun check(data: MoveData?) {
+            if (data == null) return
+            val total = calculateMoveEffectiveness(data.type, data.ignores, enemy.type1, enemy.type2)
+            if (total > 0) hasSuper = true
+            if (total >= 0) hasNeutral = true
+        }
+
+        check(move1Data)
+        check(move2Data)
+        check(move3Data)
+
+        return if (hasSuper) 1 else if (!hasNeutral) -1 else 0
+    }
+
+    fun isPokemonDangerous(attacker: PokemonInfo, target: PokemonInfo): Int {
+        return getPokemonEffectiveness(attacker, target)
     }
 
     fun getTMData(gen: String, number: String): TMData? {

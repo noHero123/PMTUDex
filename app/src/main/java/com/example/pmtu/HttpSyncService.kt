@@ -165,6 +165,8 @@ object HttpSyncService {
     data class SyncData(
         val type: String,
         val ownPokemonJson: String?,
-        val enemyPokemonJson: String?
+        val enemyPokemonJson: String?,
+        var ownWeather: String? = null,
+        var enemyWeather: String? = null
     )
 }
