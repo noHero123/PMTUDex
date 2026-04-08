@@ -46,10 +46,8 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 
-        rootLayout = LinearLayout(this).apply {
+        val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(48, 48, 48, 48)
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
@@ -57,12 +55,25 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         }
 
         val scroll = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1.0f
+            )
+            isFillViewport = true
+        }
+
+        rootLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(48, 48, 48, 48)
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
         }
         scroll.addView(rootLayout)
+        mainLayout.addView(scroll)
 
         val titleTv = TextView(this).apply {
             text = "Settings"
@@ -201,6 +212,7 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
 
         disconnectButton = Button(this).apply {
             text = "Disconnect Sync"
+            visibility = if (HttpSyncService.connectionStatus == HttpSyncService.Status.DISCONNECTED) View.GONE else View.VISIBLE
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -223,28 +235,25 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         }
         rootLayout.addView(qrImageView)
 
-        // Spacer to push Close button to bottom
-        val spacer = View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(0, 0, 1.0f)
-        }
-        rootLayout.addView(spacer)
-
         closeButton = Button(this).apply {
             text = "Close Settings"
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
-            )
+            ).apply {
+                setMargins(48, 16, 48, 48)
+            }
             setOnClickListener { finish() }
         }
-        rootLayout.addView(closeButton)
+        mainLayout.addView(closeButton)
 
-        setContentView(scroll)
+        setContentView(mainLayout)
         checkPermissions()
 
         HttpSyncService.onStatusChanged = { status, message ->
             runOnUiThread {
                 statusTv.text = if (message != null) "Status: $status ($message)" else "Status: $status"
+                disconnectButton.visibility = if (status == HttpSyncService.Status.DISCONNECTED) View.GONE else View.VISIBLE
                 if (status == HttpSyncService.Status.CONNECTED) {
                     qrImageView.visibility = View.GONE
                     stopScanner()
