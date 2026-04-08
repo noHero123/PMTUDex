@@ -4,8 +4,11 @@ import android.content.Context
 import android.util.Log
 
 class MoveRepository(private val context: Context) {
-    private val moveTypeCache = mutableMapOf<String, String>()
-    private val moveIgnoreCache = mutableMapOf<String, Boolean>()
+    private val fullMoveDataCache = mutableMapOf<String, MoveData>()
+    private val tmDataCache = mutableMapOf<String, TMData>()
+    private val zMoveCache = mutableMapOf<String, String?>()
+    private var movesLoaded = false
+    private var tmsLoaded = false
 
     data class MoveData(
         val type: String?,
@@ -24,49 +27,49 @@ class MoveRepository(private val context: Context) {
         val moveData: MoveData
     )
 
-    fun fetchMoveData(moveName: String): MoveData? {
-        val cleanName = moveName.split(" (S)")[0].trim()
+    private fun loadAllMoves() {
+        if (movesLoaded) return
         try {
-            val assetFiles = context.assets.list("") ?: return null
+            val assetFiles = context.assets.list("") ?: return
             val moveFiles = assetFiles.filter { it.startsWith("PMTU Moves") }
             
             for (fileName in moveFiles) {
-                val reader = context.assets.open(fileName).bufferedReader(Charsets.UTF_8)
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    val columns = parseCsvLine(line ?: "")
-                    if (columns.size < 11) continue
-
-                    val moveNameCol = columns[2]
-                    val filenameCol = columns[10]
-                    
-                    if (moveNameCol.equals(cleanName, ignoreCase = true) || filenameCol.equals(cleanName, ignoreCase = true)) {
-                        val type = columns[0]
-                        val ignores = if (columns.size > 17) columns[17].contains("{W Ignore}", ignoreCase = true) else false
-                        val wurfel = if (columns.size > 1) columns[1] else null
-                        
-                        moveTypeCache[cleanName] = type
-                        moveIgnoreCache[cleanName] = ignores
-                        
-                        val data = MoveData(
-                            type = type,
-                            ignores = ignores,
-                            wurfel = wurfel,
-                            powerStr = if (columns.size > 3) columns[3] else null,
-                            powerStab = if (columns.size > 4) columns[4] else null,
-                            englishName = if (columns.size > 2) columns[2] else null,
-                            germanName = if (columns.size > 16) columns[16] else null
-                        )
-                        reader.close()
-                        return data
+                context.assets.open(fileName).use { inputStream ->
+                    val reader = inputStream.bufferedReader(Charsets.UTF_8)
+                    reader.forEachLine { line ->
+                        val columns = parseCsvLine(line)
+                        if (columns.size >= 11) {
+                            val type = columns[0]
+                            val ignores = if (columns.size > 17) columns[17].contains("{W Ignore}", ignoreCase = true) else false
+                            val wurfel = if (columns.size > 1) columns[1] else null
+                            
+                            val data = MoveData(
+                                type = type,
+                                ignores = ignores,
+                                wurfel = wurfel,
+                                powerStr = if (columns.size > 3) columns[3] else null,
+                                powerStab = if (columns.size > 4) columns[4] else null,
+                                englishName = if (columns.size > 2) columns[2] else null,
+                                germanName = if (columns.size > 16) columns[16] else null
+                            )
+                            val moveNameCol = columns[2].lowercase()
+                            val filenameCol = columns[10].lowercase()
+                            if (moveNameCol.isNotEmpty()) fullMoveDataCache[moveNameCol] = data
+                            if (filenameCol.isNotEmpty()) fullMoveDataCache[filenameCol] = data
+                        }
                     }
                 }
-                reader.close()
             }
+            movesLoaded = true
         } catch (e: Exception) {
-            Log.e("MoveRepository", "Error searching move data", e)
+            Log.e("MoveRepository", "Error loading all moves", e)
         }
-        return null
+    }
+
+    fun fetchMoveData(moveName: String): MoveData? {
+        loadAllMoves()
+        val cleanName = moveName.split(" (S)")[0].trim().lowercase()
+        return fullMoveDataCache[cleanName]
     }
 
     private fun parseCsvLine(line: String): List<String> {
@@ -115,7 +118,6 @@ class MoveRepository(private val context: Context) {
 
         var powerval: Int
         var originalBasePower: Int
-        // power starts with the value printed on the card
         if (powerStr.equals("1-2 Lvl", ignoreCase = true)) {
             originalBasePower = (pokemon.base_level + pokemon.additionalLevel) / 2
             powerval = originalBasePower
@@ -124,32 +126,25 @@ class MoveRepository(private val context: Context) {
             powerval = originalBasePower
         }
 
-        // Alph boost: +2 power if original > 0, capped at 4
         if (pokemon.baseItem.equals("Alph", ignoreCase = true) && originalBasePower > 0 && originalBasePower < 4) {
             originalBasePower += 2
-            if (originalBasePower > 4) {
-                originalBasePower = 4
-            }
+            if (originalBasePower > 4) originalBasePower = 4
             powerval = originalBasePower
         }
 
-        // Add levels
         powerval += pokemon.base_level + pokemon.additionalLevel
 
         val cleanType = moveData.type?.replace("{", "")?.replace("}", "")?.trim() ?: ""
 
-        // Tera boost
         if (pokemon.isTeraActivated && pokemon.teraType?.equals(cleanType, ignoreCase = true) == true) {
             powerval += 1
         }
 
-        // Type Enhancer boost
         val originalBasePowerCheck: Int = if (powerStr.equals("1-2 Lvl", ignoreCase = true)) 1 else powerStr.toIntOrNull() ?: 0
         if (pokemon.typeEnhancerType?.equals(cleanType, ignoreCase = true) == true && originalBasePowerCheck >= 1) {
             powerval += 1
         }
 
-        // Weather/Terrain boosts
         if ((ownWeather == "Electric Terrain" || enemyWeather == "Electric Terrain") && cleanType.equals("Electric", ignoreCase = true)) {
             powerval += 1
         }
@@ -159,14 +154,12 @@ class MoveRepository(private val context: Context) {
         if ((ownWeather == "Psychic Terrain" || enemyWeather == "Psychic Terrain") && cleanType.equals("Psychic", ignoreCase = true)) {
             powerval += 1
         }
-        //rainy: boost water, reduce fire
         if ((ownWeather == "Rainy" || enemyWeather == "Rainy") && cleanType.equals("Water", ignoreCase = true)) {
             powerval += 1
         }
         if ((ownWeather == "Rainy" || enemyWeather == "Rainy") && cleanType.equals("Fire", ignoreCase = true)) {
             powerval -= 1
         }
-        //sunny: boost fire, reduce water
         if ((ownWeather == "Sunny" || enemyWeather == "Sunny") && cleanType.equals("Fire", ignoreCase = true)) {
             powerval += 1
         }
@@ -174,49 +167,30 @@ class MoveRepository(private val context: Context) {
             powerval -= 1
         }
         if (ownWeather == "Misty Terrain" || enemyWeather == "Misty Terrain") {
-            if (cleanType.equals("Fairy", ignoreCase = true)) {
-                powerval += 1
-            } else if (cleanType.equals("Dragon", ignoreCase = true)) {
-                powerval -= 1
-            }
+            if (cleanType.equals("Fairy", ignoreCase = true)) powerval += 1
+            else if (cleanType.equals("Dragon", ignoreCase = true)) powerval -= 1
         }
 
-
-        // calculate effectiveness, after that, only stuff that is added at final attack value
         var effectiveness = 0
         if (enemy != null) {
             effectiveness = calculateMoveEffectiveness(moveData.type, moveData.ignores, enemy.type1, enemy.type2)
-
             if (effectiveness == -4) effectiveness = -3
             if (effectiveness == 4) effectiveness = 3
             
-            if (effectiveness < -4) {
-                powerval = -3
-            } else {
-                powerval += effectiveness
-            }
+            if (effectiveness < -4) powerval = -3
+            else powerval += effectiveness
         }
-        //stealth rock, add to final attack value
+
         if (ownWeather == "Stealth Rock") {
             var sr_change = -1
             val pType1 = pokemon.type1.replace("{", "").replace("}", "").trim()
             val pType2 = pokemon.type2.replace("{", "").replace("}", "").trim()
             val sr_eff = calculateMoveEffectiveness("Rock", moveData.ignores, pType1, pType2)
-            if (sr_eff <= -1)
-            {
-                sr_change = 0
-            }
-            if (pType1 == "Rock" || pType2 == "Rock")
-            {
-                sr_change = 0
-            }
-            if (sr_eff >= 1)
-            {
-                sr_change = -2
-            }
+            if (sr_eff <= -1 || pType1 == "Rock" || pType2 == "Rock") sr_change = 0
+            if (sr_eff >= 1) sr_change = -2
             powerval += sr_change
         }
-        // Hail effect: -1 power if not Ice type, add to final attack value
+
         if (ownWeather == "Hail" || enemyWeather == "Hail") {
             val pType1 = pokemon.type1.replace("{", "").replace("}", "").trim()
             val pType2 = pokemon.type2.replace("{", "").replace("}", "").trim()
@@ -224,32 +198,18 @@ class MoveRepository(private val context: Context) {
                 powerval -= 1
             }
         }
-        // Sandy effect: -1 power if not Ground, Rock or Steel type, add to final attack value
+
         if (ownWeather == "Sandy" || enemyWeather == "Sandy") {
             val pType1 = pokemon.type1.replace("{", "").replace("}", "").trim()
             val pType2 = pokemon.type2.replace("{", "").replace("}", "").trim()
-            var is_Ground = 1
-            var is_Rock = 1
-            var is_Steel = 1
-            if (!pType1.equals("Ground", ignoreCase = true) && !pType2.equals("Ground", ignoreCase = true)) {
-                is_Ground = 0
-            }
-            if (!pType1.equals("Rock", ignoreCase = true) && !pType2.equals("Rock", ignoreCase = true)) {
-                is_Rock = 0
-            }
-            if (!pType1.equals("Steel", ignoreCase = true) && !pType2.equals("Steel", ignoreCase = true)) {
-                is_Steel = 0
-            }
-            if(is_Ground + is_Rock + is_Steel == 0) {
+            if (!pType1.equals("Ground", ignoreCase = true) && !pType2.equals("Ground", ignoreCase = true) &&
+                !pType1.equals("Rock", ignoreCase = true) && !pType2.equals("Rock", ignoreCase = true) &&
+                !pType1.equals("Steel", ignoreCase = true) && !pType2.equals("Steel", ignoreCase = true)) {
                 powerval -= 1
             }
         }
-        // Spikes effect: -1 power but only to own side, add to final attack value
-        if (ownWeather == "Spikes") {
-            powerval -= 1
-        }
+        if (ownWeather == "Spikes") powerval -= 1
 
-        // Vita or Shin boost
         if (pokemon.baseItem.equals("Vita", ignoreCase = true) || pokemon.baseItem.equals("Shin", ignoreCase = true)) {
             powerval += 1
         }
@@ -291,8 +251,8 @@ class MoveRepository(private val context: Context) {
             val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
             return if (prefs.getBoolean("disable_immunities", false)) -2 else -100
         }
-        if (type1Effectiveness == 1){return -2}
-        if (type1Effectiveness == 4){return 2}
+        if (type1Effectiveness == 1) return -2
+        if (type1Effectiveness == 4) return 2
         return 0
     }
 
@@ -322,83 +282,95 @@ class MoveRepository(private val context: Context) {
         return getPokemonEffectiveness(attacker, target)
     }
 
-    fun getTMData(gen: String, number: String): TMData? {
+    private fun loadAllTMs() {
+        if (tmsLoaded) return
         try {
-            val reader = context.assets.open("TM Cards - TM List.csv").bufferedReader()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                val columns = parseCsvLine(line ?: "")
-                if (columns.size >= 5 && columns[0] == gen && columns[1] == number) {
-                    val data = TMData(
-                        type = columns[2].replace("{", "").replace("}", "").trim(),
-                        name = columns[3],
-                        isStabCsv = columns[4].trim().equals("TRUE", ignoreCase = true)
-                    )
-                    reader.close()
-                    return data
+            context.assets.open("TM Cards - TM List.csv").use { inputStream ->
+                val reader = inputStream.bufferedReader()
+                reader.forEachLine { line ->
+                    val columns = parseCsvLine(line)
+                    if (columns.size >= 5) {
+                        val gen = columns[0]
+                        val number = columns[1]
+                        val data = TMData(
+                            type = columns[2].replace("{", "").replace("}", "").trim(),
+                            name = columns[3],
+                            isStabCsv = columns[4].trim().equals("TRUE", ignoreCase = true)
+                        )
+                        tmDataCache["${gen}_${number}"] = data
+                    }
                 }
             }
-            reader.close()
+            tmsLoaded = true
         } catch (e: Exception) {
             Log.e("MoveRepository", "Error reading TM list", e)
         }
-        return null
+    }
+
+    fun getTMData(gen: String, number: String): TMData? {
+        loadAllTMs()
+        return tmDataCache["${gen}_${number}"]
     }
 
     fun getZMoveForPokemon(scannedId: String, pokemon: PokemonInfo): String? {
+        val key = "${scannedId}_${pokemon.id}"
+        if (zMoveCache.containsKey(key)) return zMoveCache[key]
+
         try {
-            val reader = context.assets.open("zmoves.csv").bufferedReader()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                val columns = parseCsvLine(line ?: "")
-                if (columns.isEmpty()) continue
+            context.assets.open("zmoves.csv").use { inputStream ->
+                val reader = inputStream.bufferedReader()
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    val columns = parseCsvLine(line ?: "")
+                    if (columns.isEmpty()) continue
 
-                if (columns[0].equals(scannedId, ignoreCase = true)) {
-                    val defaultZMoveName = if (columns.size > 1) columns[1] else ""
-                    
-                    val baseZMoveData = fetchMoveData(defaultZMoveName) ?: run {
-                        Log.e("MoveRepository", "Default Z-Move data not found: $defaultZMoveName")
-                        null
-                    }
-                    val zType = baseZMoveData?.type ?: run {
-                        reader.close()
-                        return null
-                    }
-                    
-                    val m1Data = fetchMoveData(pokemon.move1)
-                    val m2Data = fetchMoveData(pokemon.move2)
-                    
-                    val knowsRequiredType = zType.equals(m1Data?.type, ignoreCase = true) || 
-                                           zType.equals(m2Data?.type, ignoreCase = true)
-                    
-                    if (!knowsRequiredType) {
-                        reader.close()
-                        return null
-                    }
+                    if (columns[0].equals(scannedId, ignoreCase = true)) {
+                        val defaultZMoveName = if (columns.size > 1) columns[1] else ""
+                        
+                        val baseZMoveData = fetchMoveData(defaultZMoveName) ?: run {
+                            Log.e("MoveRepository", "Default Z-Move data not found: $defaultZMoveName")
+                            null
+                        }
+                        val zType = baseZMoveData?.type ?: run {
+                            zMoveCache[key] = null
+                            return null
+                        }
+                        
+                        val m1Data = fetchMoveData(pokemon.move1)
+                        val m2Data = fetchMoveData(pokemon.move2)
+                        
+                        val knowsRequiredType = zType.equals(m1Data?.type, ignoreCase = true) || 
+                                               zType.equals(m2Data?.type, ignoreCase = true)
+                        
+                        if (!knowsRequiredType) {
+                            zMoveCache[key] = null
+                            return null
+                        }
 
-                    var finalMoveName = defaultZMoveName
-                    if (columns.size > 2) {
-                        for (i in 2 until columns.size) {
-                            val altEntry = columns[i]
-                            val commaIdx = altEntry.indexOf(",")
-                            if (commaIdx != -1) {
-                                val pId = altEntry.substring(0, commaIdx).trim()
-                                val altMoveName = altEntry.substring(commaIdx + 1).trim()
-                                if (pId == pokemon.id) {
-                                    finalMoveName = altMoveName
-                                    break
+                        var finalMoveName = defaultZMoveName
+                        if (columns.size > 2) {
+                            for (i in 2 until columns.size) {
+                                val altEntry = columns[i]
+                                val commaIdx = altEntry.indexOf(",")
+                                if (commaIdx != -1) {
+                                    val pId = altEntry.substring(0, commaIdx).trim()
+                                    val altMoveName = altEntry.substring(commaIdx + 1).trim()
+                                    if (pId == pokemon.id) {
+                                        finalMoveName = altMoveName
+                                        break
+                                    }
                                 }
                             }
                         }
+                        zMoveCache[key] = finalMoveName
+                        return finalMoveName
                     }
-                    reader.close()
-                    return finalMoveName
                 }
             }
-            reader.close()
         } catch (e: Exception) {
             Log.e("MoveRepository", "Error in getZMoveForPokemon", e)
         }
+        zMoveCache[key] = null
         return null
     }
 
