@@ -35,13 +35,13 @@ class PokemonUiMapper(private val context: Context) {
         container.removeAllViews()
         if (pokemon == null) return
 
-        addTypeIcon(pokemon.type1, container)
+        addTypeImage(pokemon.type1, container)
         if (pokemon.type2 != "None" && pokemon.type2.isNotBlank()) {
-            addTypeIcon(pokemon.type2, container)
+            addTypeImage(pokemon.type2, container)
         }
     }
 
-    private fun addTypeIcon(type: String, container: LinearLayout) {
+    fun addTypeImage(type: String, container: LinearLayout) {
         val cleanType = type.replace("{", "").replace("}", "").trim()
         val iv = ImageView(context)
         val size = 60

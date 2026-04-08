@@ -2,24 +2,28 @@ package com.example.pmtu
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.common.BitMatrix
 import me.dm7.barcodescanner.zxing.ZXingScannerView
+import java.io.File
 
 class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
 
@@ -31,6 +35,9 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
     private lateinit var qrImageView: ImageView
     private var scannerView: ZXingScannerView? = null
     private lateinit var rootLayout: LinearLayout
+
+    private val SAVED_TEAMS_FILE = "saved_teams.json"
+    private val TEAM_DATA_FILE = "team_data.json"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -134,6 +141,36 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         }
         rootLayout.addView(space)
 
+        // Team Management Section
+        val teamLabel = TextView(this).apply {
+            text = "Team Management"
+            textSize = 18f
+            setPadding(0, 0, 0, 16)
+        }
+        rootLayout.addView(teamLabel)
+
+        val saveTeamButton = Button(this).apply {
+            text = "Save Current Team"
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
+            setOnClickListener { showSaveTeamDialog() }
+        }
+        rootLayout.addView(saveTeamButton)
+
+        val browseTeamsButton = Button(this).apply {
+            text = "Browse Saved Teams"
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 48 }
+            setOnClickListener {
+                startActivity(Intent(this@SettingsActivity, TeamBrowserActivity::class.java))
+            }
+        }
+        rootLayout.addView(browseTeamsButton)
+
         // Sync Section
         val btLabel = TextView(this).apply {
             text = "HTTP Sync"
@@ -210,6 +247,56 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
                     stopScanner()
                 }
             }
+        }
+    }
+
+    private fun showSaveTeamDialog() {
+        val input = EditText(this)
+        input.hint = "Team Name"
+        
+        AlertDialog.Builder(this)
+            .setTitle("Save Team")
+            .setMessage("Enter a name for your current team:")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val name = input.text.toString()
+                if (name.isNotEmpty()) {
+                    saveCurrentTeam(name)
+                } else {
+                    Toast.makeText(this, "Name cannot be empty", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun saveCurrentTeam(name: String) {
+        try {
+            val teamFile = File(filesDir, TEAM_DATA_FILE)
+            if (!teamFile.exists()) {
+                Toast.makeText(this, "No team data to save", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val teamJson = teamFile.readText()
+            val typeTeam = object : TypeToken<Array<PokemonInfo?>>() {}.type
+            val currentTeam: Array<PokemonInfo?> = Gson().fromJson(teamJson, typeTeam)
+
+            val savedTeamsFile = File(filesDir, SAVED_TEAMS_FILE)
+            val savedTeams: MutableList<SavedTeam> = if (savedTeamsFile.exists()) {
+                val json = savedTeamsFile.readText()
+                val typeList = object : TypeToken<MutableList<SavedTeam>>() {}.type
+                Gson().fromJson(json, typeList)
+            } else {
+                mutableListOf()
+            }
+
+            savedTeams.add(SavedTeam(name, currentTeam))
+            savedTeamsFile.writeText(Gson().toJson(savedTeams))
+            
+            Toast.makeText(this, "Team '$name' saved!", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error saving team: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 

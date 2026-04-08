@@ -159,13 +159,20 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     viewModel.enemyPokemon.collectLatest { pokemon ->
                         updateEnemySprite(pokemon?.spriteUrl ?: "")
                         refreshUI()
+                        syncViaHttp()
                     }
                 }
                 launch {
-                    viewModel.teamPokemon.collectLatest { refreshUI() }
+                    viewModel.teamPokemon.collectLatest {
+                        refreshUI()
+                        syncViaHttp()
+                    }
                 }
                 launch {
-                    viewModel.currentTeamIndex.collectLatest { refreshUI() }
+                    viewModel.currentTeamIndex.collectLatest {
+                        refreshUI()
+                        syncViaHttp()
+                    }
                 }
                 launch {
                     viewModel.ownWeather.collectLatest { 
@@ -526,10 +533,12 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 setPadding(8, 8, 8, 8)
                 setOnClickListener {
                     val result = moveRepository.calculateMovePower(moveName, viewModel.ownPokemon.value!!, viewModel.enemyPokemon.value, viewModel.ownWeather.value, viewModel.enemyWeather.value)
-                    result?.let { r ->
-                        val text = "${r.moveData.englishName}. ${r.moveData.type} type. Power ${r.power}"
-                        speakOut(text)
+                    val lang = prefs.getString("language", "en") ?: "en"
+                    if (lang == "en") {
+                        speakOut(result?.moveData?.englishName ?: "Unknown move")
                     }
+                    if (lang == "de")
+                        speakOut(result?.moveData?.germanName ?: "Unbekannter Zug")
                 }
             }
             row.addView(speakerIv)

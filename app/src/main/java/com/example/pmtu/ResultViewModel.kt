@@ -118,7 +118,7 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private fun loadTeamData() {
+    fun loadTeamData() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val file = File(getApplication<Application>().filesDir, TEAM_FILE_NAME)
@@ -134,7 +134,11 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
                     }
                     _teamPokemon.value = loadedTeam
                     
-                    if (_ownPokemon.value == null) {
+                    // Update current pokemon if it's not set or if it's from the team
+                    val currentIdx = _currentTeamIndex.value
+                    if (currentIdx != null && currentIdx < 6) {
+                        _ownPokemon.value = loadedTeam[currentIdx]
+                    } else if (_ownPokemon.value == null) {
                         val first = loadedTeam.indexOfFirst { it != null }
                         if (first != -1) {
                             _ownPokemon.value = loadedTeam[first]

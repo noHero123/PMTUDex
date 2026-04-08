@@ -41,6 +41,11 @@
             android:exported="false"
             android:label="Settings"
             android:theme="@style/Theme.PMTU" />
+        <activity
+            android:name=".TeamBrowserActivity"
+            android:exported="false"
+            android:label="Team Browser"
+            android:theme="@style/Theme.PMTU" />
     </application>
 
 </manifest>
