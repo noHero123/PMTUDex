@@ -88,6 +88,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Whenever we return to this activity (from Settings or Browser),
+        // reload the team data in case it was changed.
+        viewModel.loadTeamData()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -212,6 +219,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             else -> {}
         }
     }
+
 
     private fun setupUI() {
         val rootLayout = FrameLayout(this)
@@ -587,6 +595,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         movesLayout.addView(row)
     }
+
 
     private fun addTeraRow(pokemon: PokemonInfo) {
         val row = LinearLayout(this).apply {

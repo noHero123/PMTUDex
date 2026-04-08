@@ -141,7 +141,7 @@ class TeamBrowserActivity : AppCompatActivity() {
         // We can't easily access the ResultViewModel here, so we save to team_data.json and let ResultActivity reload it
         val teamJson = Gson().toJson(team.pokemon)
         File(filesDir, "team_data.json").writeText(teamJson)
-        
+        setResult(RESULT_OK)
         Toast.makeText(this, "Team '${team.name}' loaded", Toast.LENGTH_SHORT).show()
         finish()
     }
