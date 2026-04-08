@@ -93,7 +93,7 @@ class PokemonUiMapper(private val context: Context) {
         val finalMoveName = if (lang == "de") moveData.germanName else moveData.englishName
         //val wurfel = moveData.wurfel ?: ""
         //val cleanWurfel = wurfel.replace(Regex("\\{.*?d[48]\\}"), "").trim()
-        builder.append(" ").append(finalMoveName ?: "").append(" ")//.append(cleanWurfel)
+        builder.append(finalMoveName ?: "").append(" ")//.append(cleanWurfel)
 
         val start = builder.length
         builder.append(powerval.toString())
@@ -111,15 +111,22 @@ class PokemonUiMapper(private val context: Context) {
         }
 
         // Add effects
-        if(enemyWeather == "Mist" && !moveData.effect1!!.contains("Dis"))
+        if(enemyWeather == "Mist" && moveData.effect1!!.contains("Dis"))
+        {
+            //ignore diss advantage if enemy has mist
+        }
+        else
         {
             addEffectIcon(builder, moveData.effect1, textView)
         }
-        if(enemyWeather == "Mist" && !moveData.effect2!!.contains("Dis"))
+        if(enemyWeather == "Mist" && moveData.effect2!!.contains("Dis"))
+        {
+            //ignore diss advantage if enemy has mist
+        }
+        else
         {
             addEffectIcon(builder, moveData.effect2, textView)
         }
-
 
         if(ownWeather == "Renewal")
         {

@@ -56,6 +56,7 @@ class ScanHandler(
     private fun handleWeatherScan(scannedText: String) {
         val weatherName = scannedText.substring(2)
         viewModel.setOwnWeather(weatherName)
+        viewModel.setUpdateUI()
     }
 
     private fun handleTMScan(scannedText: String, lifecycleOwner: LifecycleOwner) {
@@ -89,6 +90,7 @@ class ScanHandler(
                     own.move3 = moveName
                     viewModel.setOwnPokemon(own, viewModel.currentTeamIndex.value)
                     viewModel.saveTeamData()
+                    viewModel.setUpdateUI()
                 }
             }
         }
@@ -112,6 +114,7 @@ class ScanHandler(
                     own.move3 = moveName
                     viewModel.setOwnPokemon(own, viewModel.currentTeamIndex.value)
                     viewModel.saveTeamData()
+                    viewModel.setUpdateUI()
                 } else {
                     Toast.makeText(context, "Pokémon cannot learn this Z-Move", Toast.LENGTH_SHORT).show()
                 }
@@ -128,6 +131,7 @@ class ScanHandler(
         own.teraType = formattedType
         viewModel.setOwnPokemon(own, viewModel.currentTeamIndex.value)
         viewModel.saveTeamData()
+        viewModel.setUpdateUI()
     }
 
     private fun handleTypeEnhancerScan(scannedText: String) {
@@ -139,6 +143,7 @@ class ScanHandler(
         own.typeEnhancerType = formattedType
         viewModel.setOwnPokemon(own, viewModel.currentTeamIndex.value)
         viewModel.saveTeamData()
+        viewModel.setUpdateUI()
     }
 
     private fun handleBaseItemScan(scannedText: String) {
@@ -149,6 +154,7 @@ class ScanHandler(
         own.baseItem = itemName
         viewModel.setOwnPokemon(own, viewModel.currentTeamIndex.value)
         viewModel.saveTeamData()
+        viewModel.setUpdateUI()
     }
 
     private fun handleTrainerScan(scannedText: String, lifecycleOwner: LifecycleOwner) {
@@ -170,6 +176,7 @@ class ScanHandler(
                     )
                     withContext(Dispatchers.Main) {
                         viewModel.setOwnPokemon(trainerPokemon, null)
+                        viewModel.setUpdateUI()
                     }
                 }
             }

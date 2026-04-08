@@ -37,9 +37,33 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
     private val _currentTeamIndex = MutableStateFlow<Int?>(null)
     val currentTeamIndex: StateFlow<Int?> = _currentTeamIndex
 
+    private val _updateUI = MutableStateFlow<Boolean?>(false)
+    val updateUI: StateFlow<Boolean?> = _updateUI
+
+    private val _updateUINoSync = MutableStateFlow<Boolean?>(false)
+    val updateUINoSync: StateFlow<Boolean?> = _updateUINoSync
+
     init {
         loadTeamData()
     }
+
+    fun setUpdateUI() {
+        val current = updateUI.value
+        if (current == true)
+            _updateUI.value = false
+        else
+            _updateUI.value = true
+    }
+
+    fun setUpdateUINoSync() {
+        val current = updateUINoSync.value
+        if (current == true)
+            _updateUINoSync.value = false
+        else
+            _updateUINoSync.value = true
+    }
+
+
 
     fun setOwnPokemon(pokemon: PokemonInfo?, index: Int? = null) {
         val targetIndex = if (index == null && pokemon != null) {
@@ -66,6 +90,7 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearEnemy() {
         _enemyPokemon.value = null
+        _enemyWeather.value = null
     }
 
     fun addToTeam(slot: Int) {

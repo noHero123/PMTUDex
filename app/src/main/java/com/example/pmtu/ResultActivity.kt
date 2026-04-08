@@ -93,6 +93,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         // Whenever we return to this activity (from Settings or Browser),
         // reload the team data in case it was changed.
         viewModel.loadTeamData()
+        viewModel.setUpdateUI()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -139,6 +140,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             viewModel.setOwnWeather(data.enemyWeather)
                             viewModel.setEnemyWeather(data.ownWeather)
                         }
+                        viewModel.setUpdateUINoSync()
                     }
                 } catch (e: Exception) {
                     Log.e("SYNC", "Error parsing received data", e)
@@ -152,44 +154,58 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
+                    viewModel.updateUI.collectLatest {
+
+                        updateEnemySprite(viewModel.enemyPokemon.value?.spriteUrl ?: "")
+                        refreshUI()
+                        syncViaHttp()
+                    }
+                }
+                launch {
+                    viewModel.updateUINoSync.collectLatest {
+                        updateEnemySprite(viewModel.enemyPokemon.value?.spriteUrl ?: "")
+                        refreshUI()
+                    }
+                }
+                launch {
                     viewModel.ownPokemon.collectLatest { pokemon ->
                         uiMapper.updatePokemonImage(pokemon, imageView, android.R.drawable.ic_menu_camera)
                         pokemon?.let { p ->
                             val artUrl = if (p.artUrl.isNotEmpty()) p.artUrl else "https://www.serebii.net/pokemon/art/${p.id}.png"
                             downloadImage(artUrl, p.spriteUrl)
                         }
-                        refreshUI()
-                        syncViaHttp()
+                        //refreshUI()
+                        //syncViaHttp()
                     }
                 }
                 launch {
                     viewModel.enemyPokemon.collectLatest { pokemon ->
-                        updateEnemySprite(pokemon?.spriteUrl ?: "")
-                        refreshUI()
-                        syncViaHttp()
+                        //updateEnemySprite(pokemon?.spriteUrl ?: "")
+                        //refreshUI()
+                        //syncViaHttp()
                     }
                 }
                 launch {
                     viewModel.teamPokemon.collectLatest {
-                        refreshUI()
-                        syncViaHttp()
+                        //refreshUI()
+                        //syncViaHttp()
                     }
                 }
                 launch {
                     viewModel.currentTeamIndex.collectLatest {
-                        refreshUI()
-                        syncViaHttp()
+                        //refreshUI()
+                        //syncViaHttp()
                     }
                 }
                 launch {
                     viewModel.ownWeather.collectLatest { 
-                        refreshUI()
-                        syncViaHttp()
+                        //refreshUI()
+                        //syncViaHttp()
                     }
                 }
                 launch {
                     viewModel.enemyWeather.collectLatest { 
-                        refreshUI()
+                        //refreshUI()
                     }
                 }
             }
@@ -381,7 +397,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             } catch (e: Exception) {}
             layoutParams = LinearLayout.LayoutParams(100, 100).apply { leftMargin = 8 }
             visibility = View.GONE
-            setOnClickListener { viewModel.clearEnemy() }
+            setOnClickListener {
+                viewModel.clearEnemy()
+                viewModel.setUpdateUI()}
         }
         enemyInfoContainer.addView(clearEnemyButton)
 
@@ -390,8 +408,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             setOnClickListener {
                 viewModel.switchWithEnemy()
+                viewModel.setUpdateUI()
                 if (viewModel.enemyPokemon.value != null) {
-                    syncViaHttp()
+                    //syncViaHttp()
                 } else {
                     Toast.makeText(this@ResultActivity, "No enemy to switch with", Toast.LENGTH_SHORT).show()
                 }
@@ -427,7 +446,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         addRemoveButton.visibility = View.VISIBLE
         if (viewModel.currentTeamIndex.value != null) {
             addRemoveButton.text = "-"
-            addRemoveButton.setOnClickListener { viewModel.removeFromTeam() }
+            addRemoveButton.setOnClickListener {
+                viewModel.removeFromTeam()
+                viewModel.setUpdateUI()
+            }
         } else {
             addRemoveButton.text = "+"
             addRemoveButton.setOnClickListener {
@@ -463,6 +485,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 slotIv.setOnClickListener {
                     isSelectingSlot = false
                     viewModel.addToTeam(i)
+                    viewModel.setUpdateUI()
                 }
                 pokemon?.spriteBitmap?.let { slotIv.setImageBitmap(it) }
             } else if (pokemon != null) {
@@ -473,7 +496,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 }
                 pokemon.spriteBitmap?.let {
                     slotIv.setImageBitmap(it)
-                    slotIv.setOnClickListener { viewModel.setOwnPokemon(pokemon, i) }
+                    slotIv.setOnClickListener {
+                        viewModel.setOwnPokemon(pokemon, i)
+                        viewModel.setUpdateUI()
+                    }
                 } ?: run {
                     slotIv.setBackgroundColor(Color.LTGRAY)
                     loadTeamSprite(pokemon, i, slotIv)
@@ -505,7 +531,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             bitmap?.let {
                 pokemon.spriteBitmap = it
                 imageView.setImageBitmap(it)
-                imageView.setOnClickListener { viewModel.setOwnPokemon(pokemon, index) }
+                imageView.setOnClickListener {
+                    viewModel.setOwnPokemon(pokemon, index)
+                    viewModel.setUpdateUI()}
             }
         }
     }
@@ -711,7 +739,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 layoutParams = LinearLayout.LayoutParams(80, 80).apply { leftMargin = 8 }
                 setOnClickListener {
                     viewModel.setOwnWeather(null)
-                    syncViaHttp()
+                    viewModel.setUpdateUI()
+                    //syncViaHttp()
                 }
             }
             diceContainer.addView(trashIv)
@@ -723,6 +752,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             enemySpriteView.setImageDrawable(null)
             clearEnemyButton.visibility = View.GONE
             enemyTypesContainer.removeAllViews()
+            //viewModel.setUpdateUI()
             return
         }
         uiMapper.updateEnemyTypeIcons(viewModel.enemyPokemon.value, enemyTypesContainer)
@@ -755,7 +785,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             withContext(Dispatchers.Main) {
                 if (info != null) {
                     viewModel.setOwnPokemon(info, null)
-                    syncViaHttp()
+                    //syncViaHttp()
+                    viewModel.setUpdateUI()
                 } else {
                     textView.text = "Error reading Pokédex"
                 }
@@ -792,8 +823,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     p.spriteBitmap = it
                     p.spriteBase64 = bitmapToBase64(it)
                     viewModel.saveTeamData()
-                    updateTeamView()
-                    updateAddRemoveButton()
+                    //updateTeamView()
+                    //updateAddRemoveButton()
+                    viewModel.setUpdateUI()
                 }
             }
         }
