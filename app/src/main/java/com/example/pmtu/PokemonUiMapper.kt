@@ -88,6 +88,11 @@ class PokemonUiMapper(private val context: Context) {
             builder.append(moveData.type ?: "").append(" ")
         }
 
+        val finalMoveName = if (lang == "de") moveData.germanName else moveData.englishName
+        val wurfel = moveData.wurfel ?: ""
+        val cleanWurfel = wurfel.replace(Regex("\\{.*?d[48]\\}"), "").trim()
+        builder.append(" ").append(finalMoveName ?: "").append(" ").append(cleanWurfel)
+
         val start = builder.length
         builder.append(powerval.toString())
         val end = builder.length
@@ -100,10 +105,6 @@ class PokemonUiMapper(private val context: Context) {
             }
         }
 
-        val finalMoveName = if (lang == "de") moveData.germanName else moveData.englishName
-        val wurfel = moveData.wurfel ?: ""
-        val cleanWurfel = wurfel.replace(Regex("\\{.*?d[48]\\}"), "").trim()
-        builder.append(" ").append(finalMoveName ?: "").append(" ").append(cleanWurfel)
         return builder
     }
 }
