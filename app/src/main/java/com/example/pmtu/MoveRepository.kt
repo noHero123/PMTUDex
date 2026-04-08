@@ -17,7 +17,9 @@ class MoveRepository(private val context: Context) {
         val powerStab: String?,
         val englishName: String?,
         val germanName: String?,
-        val ignores: Boolean = false
+        val ignores: Boolean = false,
+        val effect1: String? = null,
+        val effect2: String? = null
     )
 
     data class PowerResult(
@@ -50,7 +52,9 @@ class MoveRepository(private val context: Context) {
                                 powerStr = if (columns.size > 3) columns[3] else null,
                                 powerStab = if (columns.size > 4) columns[4] else null,
                                 englishName = if (columns.size > 2) columns[2] else null,
-                                germanName = if (columns.size > 16) columns[16] else null
+                                germanName = if (columns.size > 16) columns[16] else null,
+                                effect1 = if (columns.size > 5) columns[5] else null,
+                                effect2 = if (columns.size > 6) columns[6] else null
                             )
                             val moveNameCol = columns[2].lowercase()
                             val filenameCol = columns[10].lowercase()

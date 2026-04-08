@@ -567,7 +567,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
 
         val moveTv = TextView(this).apply {
-            text = uiMapper.formatMoveText(result, this, prefs.getString("language", "en") ?: "en", viewModel.enemyPokemon.value)
+            text = uiMapper.formatMoveText(result, this, prefs.getString("language", "en") ?: "en", viewModel.enemyPokemon.value, viewModel.ownWeather.value, viewModel.enemyWeather.value)
             textSize = 20f
         }
         row.addView(moveTv)
