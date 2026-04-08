@@ -10,6 +10,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -22,9 +23,13 @@ class TeamBrowserActivity : AppCompatActivity() {
 
     private lateinit var teamListContainer: LinearLayout
     private val SAVED_TEAMS_FILE = "saved_teams.json"
+    private val TEAM_DATA_FILE = "team_data.json"
+    private var isSaveMode = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        isSaveMode = intent.getBooleanExtra("extra_save_mode", false)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -41,7 +46,7 @@ class TeamBrowserActivity : AppCompatActivity() {
         }
 
         val titleTv = TextView(this).apply {
-            text = "Saved Teams"
+            text = if (isSaveMode) "Select Team to Overwrite" else "Saved Teams"
             textSize = 24f
             setTypeface(null, android.graphics.Typeface.BOLD)
             setPadding(0, 0, 0, 32)
@@ -61,6 +66,18 @@ class TeamBrowserActivity : AppCompatActivity() {
         scroll.addView(teamListContainer)
         rootLayout.addView(scroll)
 
+        if (isSaveMode) {
+            val createNewBtn = Button(this).apply {
+                text = "Create New Team"
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = 16; bottomMargin = 16 }
+                setOnClickListener { showCreateTeamDialog() }
+            }
+            rootLayout.addView(createNewBtn)
+        }
+
         val closeButton = Button(this).apply {
             text = "Back"
             setOnClickListener { finish() }
@@ -72,6 +89,7 @@ class TeamBrowserActivity : AppCompatActivity() {
     }
 
     private fun loadSavedTeams() {
+        teamListContainer.removeAllViews()
         val file = File(filesDir, SAVED_TEAMS_FILE)
         if (!file.exists()) {
             val emptyTv = TextView(this).apply {
@@ -84,22 +102,32 @@ class TeamBrowserActivity : AppCompatActivity() {
         }
 
         val json = file.readText()
-        val type = object : TypeToken<List<SavedTeam>>() {}.type
-        val savedTeams: List<SavedTeam> = Gson().fromJson(json, type)
+        val type = object : TypeToken<MutableList<SavedTeam>>() {}.type
+        val savedTeams: MutableList<SavedTeam> = Gson().fromJson(json, type)
 
-        for (team in savedTeams) {
-            val teamRow = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
+        for ((index, team) in savedTeams.withIndex()) {
+            val outerRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
                 setPadding(16, 16, 16, 16)
                 setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply { setMargins(0, 0, 0, 16) }
+            }
+
+            val teamInfoLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f)
                 isClickable = true
                 isFocusable = true
                 setOnClickListener {
-                    loadTeam(team)
+                    if (isSaveMode) {
+                        confirmOverwrite(index, team.name)
+                    } else {
+                        loadTeam(team)
+                    }
                 }
             }
 
@@ -108,7 +136,7 @@ class TeamBrowserActivity : AppCompatActivity() {
                 textSize = 18f
                 setTypeface(null, android.graphics.Typeface.BOLD)
             }
-            teamRow.addView(nameTv)
+            teamInfoLayout.addView(nameTv)
 
             val spritesLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -130,20 +158,132 @@ class TeamBrowserActivity : AppCompatActivity() {
                 }
                 spritesLayout.addView(iv)
             }
-            teamRow.addView(spritesLayout)
+            teamInfoLayout.addView(spritesLayout)
 
-            teamListContainer.addView(teamRow)
+            val deleteBtn = ImageView(this).apply {
+                setImageResource(android.R.drawable.ic_menu_delete)
+                setPadding(16, 16, 16, 16)
+                setOnClickListener {
+                    confirmDelete(index, team.name)
+                }
+            }
+
+            outerRow.addView(teamInfoLayout)
+            outerRow.addView(deleteBtn)
+            teamListContainer.addView(outerRow)
         }
     }
 
     private fun loadTeam(team: SavedTeam) {
-        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        // We can't easily access the ResultViewModel here, so we save to team_data.json and let ResultActivity reload it
         val teamJson = Gson().toJson(team.pokemon)
-        File(filesDir, "team_data.json").writeText(teamJson)
+        File(filesDir, TEAM_DATA_FILE).writeText(teamJson)
         setResult(RESULT_OK)
         Toast.makeText(this, "Team '${team.name}' loaded", Toast.LENGTH_SHORT).show()
         finish()
+    }
+
+    private fun confirmOverwrite(index: Int, name: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Overwrite Team")
+            .setMessage("Do you want to overwrite '$name' with your current team?")
+            .setPositiveButton("Overwrite") { _, _ ->
+                saveCurrentTeam(name, index)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun confirmDelete(index: Int, name: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Delete Team")
+            .setMessage("Are you sure you want to delete '$name'?")
+            .setPositiveButton("Delete") { _, _ ->
+                deleteTeam(index)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun deleteTeam(index: Int) {
+        try {
+            val file = File(filesDir, SAVED_TEAMS_FILE)
+            if (!file.exists()) return
+
+            val json = file.readText()
+            val type = object : TypeToken<MutableList<SavedTeam>>() {}.type
+            val savedTeams: MutableList<SavedTeam> = Gson().fromJson(json, type)
+
+            if (index in savedTeams.indices) {
+                val removed = savedTeams.removeAt(index)
+                file.writeText(Gson().toJson(savedTeams))
+                Toast.makeText(this, "Team '${removed.name}' deleted", Toast.LENGTH_SHORT).show()
+                loadSavedTeams() // Refresh the list
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error deleting team: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun showCreateTeamDialog() {
+        val input = EditText(this)
+        input.hint = "Team Name"
+        
+        AlertDialog.Builder(this)
+            .setTitle("Create New Team")
+            .setMessage("Enter a name for your current team:")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val name = input.text.toString()
+                if (name.isNotEmpty()) {
+                    saveCurrentTeam(name, null)
+                } else {
+                    Toast.makeText(this, "Name cannot be empty", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun saveCurrentTeam(name: String, overwriteIndex: Int?) {
+        try {
+            val teamFile = File(filesDir, TEAM_DATA_FILE)
+            if (!teamFile.exists()) {
+                Toast.makeText(this, "No team data to save", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val teamJson = teamFile.readText()
+            val typeTeam = object : TypeToken<Array<PokemonInfo?>>() {}.type
+            val currentTeam: Array<PokemonInfo?> = Gson().fromJson(teamJson, typeTeam)
+
+            val savedTeamsFile = File(filesDir, SAVED_TEAMS_FILE)
+            val savedTeams: MutableList<SavedTeam> = if (savedTeamsFile.exists()) {
+                val json = savedTeamsFile.readText()
+                val typeList = object : TypeToken<MutableList<SavedTeam>>() {}.type
+                Gson().fromJson(json, typeList)
+            } else {
+                mutableListOf()
+            }
+
+            val newSavedTeam = SavedTeam(name, currentTeam)
+            if (overwriteIndex != null && overwriteIndex in savedTeams.indices) {
+                savedTeams[overwriteIndex] = newSavedTeam
+                Toast.makeText(this, "Team '$name' overwritten!", Toast.LENGTH_SHORT).show()
+            } else {
+                savedTeams.add(newSavedTeam)
+                Toast.makeText(this, "Team '$name' saved!", Toast.LENGTH_SHORT).show()
+            }
+
+            savedTeamsFile.writeText(Gson().toJson(savedTeams))
+            loadSavedTeams() // Refresh the list
+            if (overwriteIndex != null || !isSaveMode) {
+                // If we overwritten or were not in create mode, maybe we want to close?
+                // User didn't specify, but usually saving finishes the action.
+                // Let's stay for now to see the updated list, or maybe close if overwrite.
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error saving team: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun base64ToBitmap(base64: String): Bitmap {
