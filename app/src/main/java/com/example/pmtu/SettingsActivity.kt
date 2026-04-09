@@ -11,6 +11,8 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.launch
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
@@ -180,7 +182,8 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply { bottomMargin = 48 }
             setOnClickListener {
-                startActivity(Intent(this@SettingsActivity, TeamBrowserActivity::class.java))
+                onOpenBrowserClicked()
+                //startActivity(Intent(this@SettingsActivity, TeamBrowserActivity::class.java))
             }
         }
         rootLayout.addView(browseTeamsButton)
@@ -302,6 +305,25 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
     override fun handleResult(rawResult: com.google.zxing.Result?) {
         // Scanner is no longer used in SettingsActivity for connection
         stopScanner()
+    }
+
+    private val browserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val selectedTeam = result.data?.getParcelableExtra<SavedTeam>("SELECTED_TEAM")
+
+            val returnIntent = Intent()
+            returnIntent.putExtra("SELECTED_TEAM", selectedTeam)
+
+            setResult(RESULT_OK, returnIntent)
+            finish()
+        }
+    }
+
+    fun onOpenBrowserClicked() {
+        val intent = Intent(this, TeamBrowserActivity::class.java)
+        browserLauncher.launch(intent)
     }
 
     private fun generateQRCode(text: String): Bitmap? {

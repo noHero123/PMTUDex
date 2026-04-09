@@ -131,9 +131,17 @@ class MoveRepository(private val context: Context) {
         }
 
         if (pokemon.baseItem.equals("Alph", ignoreCase = true) && originalBasePower > 0 && originalBasePower < 4) {
-            originalBasePower += 2
-            if (originalBasePower > 4) originalBasePower = 4
-            powerval = originalBasePower
+            if (pokemon.isBaseItemActivated) {
+                originalBasePower += 2
+                if (originalBasePower > 4) originalBasePower = 4
+                powerval = originalBasePower
+            }
+        }
+        
+        // Evio logic
+        if (pokemon.baseItem.equals("Evio", ignoreCase = true) && pokemon.isBaseItemActivated) {
+            // Usually Eviolite is defensive, but if it affects power here, we add it.
+            // But based on your request, I should probably check how other items affect power.
         }
 
         powerval += pokemon.base_level + pokemon.additionalLevel

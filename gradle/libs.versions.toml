@@ -7,7 +7,8 @@ espressoCore = "3.5.1"
 lifecycleRuntimeKtx = "2.6.1"
 appcompat = "1.6.1"
 activityCompose = "1.8.0"
-kotlin = "2.2.10"
+#kotlin = "2.2.10"
+kotlin = "2.3.20"
 composeBom = "2024.09.00"
 camerax = "1.4.1"
 
@@ -37,3 +38,4 @@ androidx-camera-extensions = { group = "androidx.camera", name = "camera-extensi
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlin" }

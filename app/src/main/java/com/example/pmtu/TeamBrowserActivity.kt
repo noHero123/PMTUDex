@@ -1,5 +1,6 @@
 package com.example.pmtu
 
+import android.content.Intent
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -175,9 +176,11 @@ class TeamBrowserActivity : AppCompatActivity() {
     }
 
     private fun loadTeam(team: SavedTeam) {
-        val teamJson = Gson().toJson(team.pokemon)
-        File(filesDir, TEAM_DATA_FILE).writeText(teamJson)
-        setResult(RESULT_OK)
+        /*val teamJson = Gson().toJson(team.pokemon)
+        File(filesDir, TEAM_DATA_FILE).writeText(teamJson)*/
+        val resultIntent = Intent()
+        resultIntent.putExtra("SELECTED_TEAM", team)
+        setResult(RESULT_OK, resultIntent)
         Toast.makeText(this, "Team '${team.name}' loaded", Toast.LENGTH_SHORT).show()
         finish()
     }
@@ -265,7 +268,7 @@ class TeamBrowserActivity : AppCompatActivity() {
                 mutableListOf()
             }
 
-            val newSavedTeam = SavedTeam(name, currentTeam)
+            val newSavedTeam = SavedTeam(name = name, pokemon = currentTeam)
             if (overwriteIndex != null && overwriteIndex in savedTeams.indices) {
                 savedTeams[overwriteIndex] = newSavedTeam
                 Toast.makeText(this, "Team '$name' overwritten!", Toast.LENGTH_SHORT).show()

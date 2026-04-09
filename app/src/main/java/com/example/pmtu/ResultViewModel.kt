@@ -171,12 +171,17 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
                         }
                     }
                 }
+                setUpdateUINoSync()
             } catch (e: Exception) {
                 Log.e("Storage", "Error loading team data", e)
             }
         }
     }
 
+    fun setTeam(newList: Array<PokemonInfo?>) {
+        _teamPokemon.value = newList
+        _currentTeamIndex.value = null
+    }
     private fun bitmapToBase64(bitmap: Bitmap): String {
         val outputStream = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)

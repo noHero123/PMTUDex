@@ -1,7 +1,9 @@
 package com.example.pmtu
-
+import kotlinx.parcelize.Parcelize
+import kotlinx.parcelize.IgnoredOnParcel
+import android.os.Parcelable
 import android.graphics.Bitmap
-
+@Parcelize
 data class PokemonInfo(
     val id: String,
     var name: String,
@@ -13,6 +15,7 @@ data class PokemonInfo(
     val move2: String,
     val spriteUrl: String,
     val artUrl: String,
+    @IgnoredOnParcel
     var spriteBase64: String? = null,
     var additionalLevel: Int = 0,
     var nextPokedexIndex: Int = 0,
@@ -21,8 +24,10 @@ data class PokemonInfo(
     var isTeraActivated: Boolean = false,
     var typeEnhancerType: String? = null,
     var baseItem: String? = null,
+    var isBaseItemActivated: Boolean = false,
     var isTrainerPokemon: Boolean = false
-) {
+):Parcelable {
     @Transient
+    @IgnoredOnParcel
     var spriteBitmap: Bitmap? = null
 }

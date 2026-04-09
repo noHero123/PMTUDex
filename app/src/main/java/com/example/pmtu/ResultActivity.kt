@@ -88,12 +88,23 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        // Whenever we return to this activity (from Settings or Browser),
-        // reload the team data in case it was changed.
-        viewModel.loadTeamData()
-        viewModel.setUpdateUI()
+    private val teamBrowserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            //1. Extract the structure from the Intent
+            val selectedTeam = result.data?.getParcelableExtra<SavedTeam>("SELECTED_TEAM")
+
+            selectedTeam?.let { team ->
+                // 2. Pass the structure directly to the ViewModel
+                viewModel.setTeam(team.pokemon)
+
+                // 3. Optional: Also save it to the "current" file for persistence
+                viewModel.saveTeamData()
+
+                viewModel.setUpdateUI()
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -255,7 +266,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         settingsButton = ImageView(this).apply {
             setImageResource(android.R.drawable.ic_menu_preferences)
             layoutParams = LinearLayout.LayoutParams(80, 80)
-            setOnClickListener { startActivity(Intent(this@ResultActivity, SettingsActivity::class.java)) }
+            setOnClickListener {
+                // Use the launcher instead of startActivity
+                val intent = Intent(this@ResultActivity, SettingsActivity::class.java)
+                teamBrowserLauncher.launch(intent)
+            }
         }
         topBar.addView(settingsButton)
         mainContainer.addView(topBar)
@@ -530,6 +545,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             bitmap?.let {
                 pokemon.spriteBitmap = it
+                imageView.setBackgroundColor(Color.WHITE)
                 imageView.setImageBitmap(it)
                 imageView.setOnClickListener {
                     viewModel.setOwnPokemon(pokemon, index)
@@ -670,17 +686,29 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun addBaseItemRow(pokemon: PokemonInfo) {
+        val itemname = pokemon.baseItem
         val row = LinearLayout(this).apply {
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 16, 0, 16) }
         }
         val iv = ImageView(this).apply {
-            try { setImageBitmap(BitmapFactory.decodeStream(assets.open("base_items/${pokemon.baseItem}.png"))) } catch (e: Exception) {}
+            try { setImageBitmap(BitmapFactory.decodeStream(assets.open("base_items/${itemname}.png"))) } catch (e: Exception) {}
             layoutParams = LinearLayout.LayoutParams(150, 150)
+            colorFilter = if (!pokemon.isBaseItemActivated) ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) }) else null
+            setOnClickListener {
+                val toggleableItems = listOf("Evio", "Left", "Quic", "Wide")
+                if (pokemon.baseItem in toggleableItems) {
+                    pokemon.isBaseItemActivated = !pokemon.isBaseItemActivated
+                }
+                refreshMoves()
+                viewModel.saveTeamData()
+                syncViaHttp()
+            }
         }
         row.addView(iv)
         addDeleteButton(row) {
             pokemon.baseItem = null
+            pokemon.isBaseItemActivated = false
             refreshMoves()
             viewModel.saveTeamData()
         }

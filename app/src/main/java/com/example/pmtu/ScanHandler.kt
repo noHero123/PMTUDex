@@ -152,6 +152,15 @@ class ScanHandler(
         val itemName = scannedText.substring(2)
         clearOtherAttachments(own)
         own.baseItem = itemName
+        
+        // Deactivate by default if it's one of the toggleable items
+        val toggleableItems = listOf("Evio", "Left", "Quic", "Wide")
+        if (toggleableItems.any { it.equals(itemName, ignoreCase = true) }) {
+            own.isBaseItemActivated = false
+        } else {
+            own.isBaseItemActivated = true
+        }
+        
         viewModel.setOwnPokemon(own, viewModel.currentTeamIndex.value)
         viewModel.saveTeamData()
         viewModel.setUpdateUI()
@@ -189,5 +198,6 @@ class ScanHandler(
         pokemon.isTeraActivated = false
         pokemon.typeEnhancerType = null
         pokemon.baseItem = null
+        pokemon.isBaseItemActivated = false
     }
 }
