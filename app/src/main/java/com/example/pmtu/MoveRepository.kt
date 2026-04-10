@@ -64,6 +64,20 @@ class MoveRepository(private val context: Context) {
                     }
                 }
             }
+
+            //add moveless attack for status conditions:
+            val typeLessData = MoveData(
+                type = "Typeless",
+                ignores = false,
+                wurfel = "",
+                powerStr = "0",
+                powerStab = "0",
+                englishName = "Typeless",
+                germanName = "Typenlos",
+                effect1 = "",
+                effect2 = ""
+            )
+            fullMoveDataCache["typeless"] = typeLessData
             movesLoaded = true
         } catch (e: Exception) {
             Log.e("MoveRepository", "Error loading all moves", e)
@@ -124,29 +138,36 @@ class MoveRepository(private val context: Context) {
         var originalBasePower: Int
         if (powerStr.equals("1-2 Lvl", ignoreCase = true)) {
             originalBasePower = (pokemon.base_level + pokemon.additionalLevel) / 2
-            powerval = originalBasePower
         } else {
             originalBasePower = powerStr.toIntOrNull() ?: 0
-            powerval = originalBasePower
+
+        }
+
+        if(pokemon.statusCondition.equals("Burn", ignoreCase = true))
+        {
+            if(originalBasePower > 0) {
+                originalBasePower -= 1
+            }
         }
 
         if (pokemon.baseItem.equals("Alph", ignoreCase = true) && originalBasePower > 0 && originalBasePower < 4) {
             if (pokemon.isBaseItemActivated) {
                 originalBasePower += 2
                 if (originalBasePower > 4) originalBasePower = 4
-                powerval = originalBasePower
             }
         }
-        
-        // Evio logic
-        if (pokemon.baseItem.equals("Evio", ignoreCase = true) && pokemon.isBaseItemActivated) {
-            // Usually Eviolite is defensive, but if it affects power here, we add it.
-            // But based on your request, I should probably check how other items affect power.
+
+        var cleanType = moveData.type?.replace("{", "")?.replace("}", "")?.trim() ?: ""
+
+        if(pokemon.hasTypelessMove()){
+            originalBasePower = 0
+            cleanType = "Typeless"
         }
 
+        powerval = originalBasePower
         powerval += pokemon.base_level + pokemon.additionalLevel
 
-        val cleanType = moveData.type?.replace("{", "")?.replace("}", "")?.trim() ?: ""
+
 
         if (pokemon.isTeraActivated && pokemon.teraType?.equals(cleanType, ignoreCase = true) == true) {
             powerval += 1
@@ -185,7 +206,7 @@ class MoveRepository(private val context: Context) {
 
         var effectiveness = 0
         if (enemy != null) {
-            effectiveness = calculateMoveEffectiveness(moveData.type, moveData.ignores, enemy.type1, enemy.type2)
+            effectiveness = calculateMoveEffectiveness(cleanType, moveData.ignores, enemy.type1, enemy.type2)
             if (effectiveness == -4) effectiveness = -3
             if (effectiveness == 4) effectiveness = 3
             
@@ -220,7 +241,9 @@ class MoveRepository(private val context: Context) {
                 powerval -= 1
             }
         }
-        if (ownWeather == "Spikes") powerval -= 1
+        if (ownWeather == "Spikes") {
+            powerval -= 1
+        }
 
         if (pokemon.baseItem.equals("Vita", ignoreCase = true) || pokemon.baseItem.equals("Shin", ignoreCase = true)) {
             powerval += 1
@@ -286,6 +309,10 @@ class MoveRepository(private val context: Context) {
             val total = calculateMoveEffectiveness(data.type, data.ignores, enemy.type1, enemy.type2)
             if (total > 0) hasSuper = true
             if (total >= 0) hasNeutral = true
+        }
+
+        if(pokemon.hasTypelessMove()){
+            return 0
         }
 
         check(move1Data)

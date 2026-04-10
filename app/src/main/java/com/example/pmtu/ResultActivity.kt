@@ -50,8 +50,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var teamContainer: LinearLayout
     private lateinit var enemySpriteView: ImageView
     private lateinit var enemyTypesContainer: LinearLayout
+    private lateinit var enemyStatusContainer: LinearLayout
     private lateinit var clearEnemyButton: ImageView
     private lateinit var pokedexButton: Button
+    private lateinit var statusFieldContainer: LinearLayout
+
+    private lateinit var fieldEffectsContainer: LinearLayout
+
     private lateinit var addRemoveButton: Button
     private lateinit var evolutionsContainer: LinearLayout
     private lateinit var preEvolutionsContainer: LinearLayout
@@ -230,6 +235,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         updateAddRemoveButton()
         updateEvolutionViews()
         updateTeamView()
+        updateStatusFieldIcons()
+        updateFieldIcons()
     }
 
     private fun processScanResult(scannedText: String) {
@@ -335,11 +342,31 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         imageEvoLayout.addView(evolutionsContainer)
         centerContainer.addView(imageEvoLayout)
 
+        // 1. Create the Row Container
+        val pokedexRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = 32
+            bottomMargin = 32
+            }
+        }
+
+        // 2. Left Side: Status Icons (Burn, Paralyze, etc.)
+        // We use weight 1.0f to push the button to the center
+        statusFieldContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f)
+        }
+        pokedexRow.addView(statusFieldContainer)
+
+        // 3. Center: Pokédex Button
         pokedexButton = Button(this).apply {
             text = "Pokédex"
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = 32
-                bottomMargin = 32
+                leftMargin = 16
+                rightMargin = 16
             }
             setOnClickListener {
                 viewModel.ownPokemon.value?.let {
@@ -352,7 +379,18 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 }
             }
         }
-        centerContainer.addView(pokedexButton)
+        pokedexRow.addView(pokedexButton)
+
+        // 4. Right Side: Field Effects (Weather, Terrain, etc.)
+        // New container specifically for the right side
+        fieldEffectsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL or Gravity.START
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f)
+        }
+        pokedexRow.addView(fieldEffectsContainer)
+
+        centerContainer.addView(pokedexRow)
 
         movesLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -396,6 +434,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
+        enemyStatusContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = 8 }
+        }
+        enemyInfoContainer.addView(enemyStatusContainer)
+
         enemyTypesContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -557,12 +602,18 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun refreshMoves() {
         movesLayout.removeAllViews()
         val own = viewModel.ownPokemon.value ?: return
-        addMoveRow(own.move1)
-        addMoveRow(own.move2)
+        if (own.hasTypelessMove()) {
+            addMoveRow("Typeless")
+        }
+        else{
+            addMoveRow(own.move1)
+            addMoveRow(own.move2)
+            own.move3?.let { addMoveRow(it, true) }
+        }
         own.teraType?.let { addTeraRow(own) }
         own.typeEnhancerType?.let { addTypeEnhancerRow(own) }
         own.baseItem?.let { addBaseItemRow(own) }
-        own.move3?.let { addMoveRow(it, true) }
+
     }
 
     private fun addMoveRow(moveName: String, isTM: Boolean = false) {
@@ -755,23 +806,53 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             diceContainer.addView(diceIv)
         }
+    }
 
+    private fun updateStatusFieldIcons() {
+        statusFieldContainer.removeAllViews()
+        val own = viewModel.ownPokemon.value
+        // Status Condition
+        own?.statusCondition?.let { status ->
+            if (status.isNotEmpty()) {
+                val statusIv = ImageView(this).apply {
+                    try { setImageBitmap(BitmapFactory.decodeStream(assets.open("status_icons/$status.png"))) } catch (e: Exception) {}
+                    layoutParams = LinearLayout.LayoutParams(100, 100)
+                }
+                statusFieldContainer.addView(statusIv)
+                val trashIv = ImageView(this).apply {
+                    try { setImageBitmap(BitmapFactory.decodeStream(assets.open("trash.png"))) } catch (e: Exception) {}
+                    layoutParams = LinearLayout.LayoutParams(60, 60).apply { leftMargin = 4; rightMargin = 16 }
+                    setOnClickListener {
+                        own.statusCondition = null
+                        viewModel.saveTeamData()
+                        viewModel.setUpdateUI()
+                    }
+                }
+                statusFieldContainer.addView(trashIv)
+            }
+        }
+    }
+
+    private fun updateFieldIcons() {
+        fieldEffectsContainer.removeAllViews()
+        val own = viewModel.ownPokemon.value
+
+        // Field Symbol
         viewModel.ownWeather.value?.let { weather ->
             val weatherIv = ImageView(this).apply {
                 try { setImageBitmap(BitmapFactory.decodeStream(assets.open("Field/$weather.png"))) } catch (e: Exception) {}
-                layoutParams = LinearLayout.LayoutParams(150, 150).apply { leftMargin = 32 }
+                layoutParams = LinearLayout.LayoutParams(100, 100)
             }
-            diceContainer.addView(weatherIv)
+            fieldEffectsContainer.addView(weatherIv)
             val trashIv = ImageView(this).apply {
                 try { setImageBitmap(BitmapFactory.decodeStream(assets.open("trash.png"))) } catch (e: Exception) {}
-                layoutParams = LinearLayout.LayoutParams(80, 80).apply { leftMargin = 8 }
+                layoutParams = LinearLayout.LayoutParams(60, 60).apply { leftMargin = 4; rightMargin = 16 }
                 setOnClickListener {
                     viewModel.setOwnWeather(null)
                     viewModel.setUpdateUI()
-                    //syncViaHttp()
                 }
             }
-            diceContainer.addView(trashIv)
+            fieldEffectsContainer.addView(trashIv)
         }
     }
 
@@ -780,17 +861,35 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             enemySpriteView.setImageDrawable(null)
             clearEnemyButton.visibility = View.GONE
             enemyTypesContainer.removeAllViews()
+            enemyStatusContainer.removeAllViews()
             //viewModel.setUpdateUI()
             return
         }
-        uiMapper.updateEnemyTypeIcons(viewModel.enemyPokemon.value, enemyTypesContainer)
+        enemyStatusContainer.removeAllViews()
         viewModel.enemyWeather.value?.let { weather ->
             val weatherIv = ImageView(this).apply {
                 layoutParams = LinearLayout.LayoutParams(80, 80).apply { bottomMargin = 8 }
                 try { setImageBitmap(BitmapFactory.decodeStream(assets.open("Field/$weather.png"))) } catch (e: Exception) {}
             }
-            enemyTypesContainer.addView(weatherIv, 0)
+            enemyStatusContainer.addView(weatherIv, 0)
         }
+        val enemy = viewModel.enemyPokemon.value
+        // Status Condition
+        enemy?.statusCondition?.let { status ->
+            if (status.isNotEmpty()) {
+                val statusIv = ImageView(this).apply {
+                    try {
+                        setImageBitmap(BitmapFactory.decodeStream(assets.open("status_icons/$status.png")))
+                    } catch (e: Exception) {
+                    }
+                    layoutParams = LinearLayout.LayoutParams(80, 80)
+                }
+                enemyStatusContainer.addView(statusIv)
+            }
+        }
+
+        uiMapper.updateEnemyTypeIcons(viewModel.enemyPokemon.value, enemyTypesContainer)
+
 
         lifecycleScope.launch {
             val bitmap = loadCachedBitmap(spriteUrl) ?: withContext(Dispatchers.IO) {

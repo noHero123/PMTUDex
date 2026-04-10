@@ -31,4 +31,11 @@ data class PokemonInfo(
     @Transient
     @IgnoredOnParcel
     var spriteBitmap: Bitmap? = null
+
+    fun hasTypelessMove(): Boolean {
+        return statusCondition.equals("Froz", ignoreCase = true) ||
+                statusCondition.equals("Para", ignoreCase = true) ||
+                statusCondition.equals("Slee", ignoreCase = true)
+    }
+
 }
