@@ -66,9 +66,11 @@ class PokemonUiMapper(private val context: Context) {
         result: MoveRepository.PowerResult,
         textView: TextView,
         lang: String,
+        ownPokemon: PokemonInfo?,
         enemyPokemon: PokemonInfo?,
         ownWeather: String?,
-        enemyWeather: String?
+        enemyWeather: String?,
+        pokedexRepository: PokedexRepository
     ): CharSequence {
         val moveData = result.moveData
         val powerval = result.power
@@ -98,6 +100,7 @@ class PokemonUiMapper(private val context: Context) {
         val start = builder.length
         builder.append(powerval.toString())
         val end = builder.length
+        builder.append(" ")
 
         if (enemyPokemon != null) {
             if (effectiveness < -4) {
@@ -109,29 +112,81 @@ class PokemonUiMapper(private val context: Context) {
                 builder.setSpan(ForegroundColorSpan(Color.GREEN), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
         }
+        var usedKing = false
+        var usedZoom = false
+        var meff1 = moveData.effect1?.replace("{", "")?.replace("}", "")?.trim() ?: ""
+        var meff2 = moveData.effect2?.replace("{", "")?.replace("}", "")?.trim() ?: ""
 
-        // Add effects
-        if(enemyWeather == "Mist" && moveData.effect1!!.contains("Dis"))
+        val effs = arrayOf(meff1, meff2) // Initialization
+        for (effi in effs)
         {
-            //ignore diss advantage if enemy has mist
-        }
-        else
-        {
-            addEffectIcon(builder, moveData.effect1, textView)
-        }
-        if(enemyWeather == "Mist" && moveData.effect2!!.contains("Dis"))
-        {
-            //ignore diss advantage if enemy has mist
-        }
-        else
-        {
-            addEffectIcon(builder, moveData.effect2, textView)
+            if(effi == "")
+            {continue}
+            var eff = effi
+            // Kings stone
+            if(ownPokemon?.baseItem == "King" && !usedKing && eff.contains("B Dis"))
+            {
+                val counter = (eff.split(" ").last()).toIntOrNull()
+                if (counter != null && counter > 1)
+                {
+                    eff = eff.replace(counter.toString(), (counter - 1).toString())
+                    usedKing = true
+                }
+            }
+            // Zoom Lense
+            if(ownPokemon?.baseItem == "Zoom" && !usedZoom && eff.contains("W Adv"))
+            {
+                val counter = (eff.split(" ").last()).toIntOrNull()
+                if (counter != null && counter > 1)
+                {
+                    eff = eff.replace(counter.toString(), (counter - 1).toString())
+                    usedZoom = true
+                }
+            }
+            //Wide lense
+            if(ownPokemon?.baseItem == "Wide" && !eff.contains("KO") && ownPokemon.isBaseItemActivated)
+            {
+                val counter = (eff.split(" ").last()).toIntOrNull()
+                if (counter != null && counter > 1)
+                {
+                    eff = eff.replace(counter.toString(), (counter - 1).toString())
+                }
+            }
+
+            // Add effects
+            if(enemyWeather == "Mist" && eff.contains("Dis"))
+            {
+                //ignore diss advantage if enemy has mist
+            }
+            else
+            {
+                addEffectIcon(builder, eff, textView)
+            }
         }
 
+        //additional effects:
         if(ownWeather == "Renewal")
         {
             addEffectIcon(builder, "W Life", textView)
         }
+        if(enemyWeather != "Mist" && ownPokemon?.baseItem == "Evio" && ownPokemon.isBaseItemActivated && !pokedexRepository.isFullyEvolved(ownPokemon.id))
+        {
+            //evio adds a dis to your attacks:
+            addEffectIcon(builder, "B Dis 1", textView)
+        }
+        if(enemyWeather != "Mist" && ownPokemon?.baseItem == "King" && !usedKing){
+            addEffectIcon(builder, "B Dis 5", textView)
+        }
+        if(ownPokemon?.baseItem == "Zoom" && !usedZoom){
+            addEffectIcon(builder, "W Adv 5", textView)
+        }
+        if(ownPokemon?.baseItem == "Quic" && ownPokemon.isBaseItemActivated){
+            addEffectIcon(builder, "W Priority", textView)
+        }
+        if(ownPokemon?.baseItem == "Razo"){
+            addEffectIcon(builder, "W Extra 6", textView)
+        }
+
 
         return builder
     }

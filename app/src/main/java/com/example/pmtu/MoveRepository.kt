@@ -226,6 +226,11 @@ class MoveRepository(private val context: Context) {
             powerval += 1
         }
 
+        if (pokemon.isBaseItemActivated && pokemon.baseItem.equals("Left", ignoreCase = true)) {
+            powerval -= 1
+        }
+
+
         return PowerResult(powerval, effectiveness, cleanType, moveData)
     }
 
