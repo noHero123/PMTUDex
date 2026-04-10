@@ -25,7 +25,8 @@ data class PokemonInfo(
     var typeEnhancerType: String? = null,
     var baseItem: String? = null,
     var isBaseItemActivated: Boolean = false,
-    var isTrainerPokemon: Boolean = false
+    var isTrainerPokemon: Boolean = false,
+    var statusCondition: String? = null
 ):Parcelable {
     @Transient
     @IgnoredOnParcel

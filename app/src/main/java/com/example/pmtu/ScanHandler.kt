@@ -29,6 +29,9 @@ class ScanHandler(
         } else if (scannedText.startsWith("tr", ignoreCase = true)) {
             handleTrainerScan(scannedText, lifecycleOwner)
             return ScanResult.Handled
+        } else if (scannedText.startsWith("st", ignoreCase = true)) {
+            handleStatusScan(scannedText)
+            return ScanResult.Handled
         } else if (scannedText.startsWith("t", ignoreCase = true)) {
             handleTMScan(scannedText, lifecycleOwner)
             return ScanResult.Handled
@@ -141,6 +144,15 @@ class ScanHandler(
         val formattedType = type.lowercase().replaceFirstChar { it.uppercase() }
         clearOtherAttachments(own)
         own.typeEnhancerType = formattedType
+        viewModel.setOwnPokemon(own, viewModel.currentTeamIndex.value)
+        viewModel.saveTeamData()
+        viewModel.setUpdateUI()
+    }
+
+    private fun handleStatusScan(scannedText: String) {
+        val own = viewModel.ownPokemon.value ?: return
+        val type = scannedText.substring(2)
+        own.statusCondition = type
         viewModel.setOwnPokemon(own, viewModel.currentTeamIndex.value)
         viewModel.saveTeamData()
         viewModel.setUpdateUI()
