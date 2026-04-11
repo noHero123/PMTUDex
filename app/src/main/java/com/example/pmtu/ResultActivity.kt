@@ -707,9 +707,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             colorFilter = if (!pokemon.isTeraActivated) ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) }) else null
             setOnClickListener {
                 pokemon.isTeraActivated = !pokemon.isTeraActivated
-                refreshMoves()
+                //refreshMoves()
+                viewModel.setUpdateUI()
                 viewModel.saveTeamData()
-                syncViaHttp()
+                //syncViaHttp()
             }
         }
         row.addView(teraIv)

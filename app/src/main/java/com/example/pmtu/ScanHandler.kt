@@ -82,8 +82,8 @@ class ScanHandler(
         lifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             val tmData = moveRepository.getTMData(gen, number)
             if (tmData != null) {
-                val pType1 = own.type1.replace("{", "").replace("}", "").trim()
-                val pType2 = own.type2.replace("{", "").replace("}", "").trim()
+                val pType1 = own.getType1().replace("{", "").replace("}", "").trim()
+                val pType2 = own.getType2().replace("{", "").replace("}", "").trim()
                 val isRealStab = tmData.isStabCsv && (tmData.type.equals(pType1, ignoreCase = true) ||
                         (pType2 != "None" && tmData.type.equals(pType2, ignoreCase = true)))
                 val moveName = if (isRealStab) "${tmData.name} (S)" else tmData.name

@@ -35,9 +35,9 @@ class PokemonUiMapper(private val context: Context) {
         container.removeAllViews()
         if (pokemon == null) return
 
-        addTypeImage(pokemon.type1, container)
-        if (pokemon.type2 != "None" && pokemon.type2.isNotBlank()) {
-            addTypeImage(pokemon.type2, container)
+        addTypeImage(pokemon.getType1(), container)
+        if (pokemon.getType2() != "None" && pokemon.getType2().isNotBlank()) {
+            addTypeImage(pokemon.getType2(), container)
         }
     }
 

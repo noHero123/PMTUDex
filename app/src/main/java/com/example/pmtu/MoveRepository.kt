@@ -114,8 +114,8 @@ class MoveRepository(private val context: Context) {
     fun isStab(pokemon: PokemonInfo, type: String?): Boolean {
         if (type == null) return false
         val cleanType = type.replace("{", "").replace("}", "").trim()
-        val pType1 = pokemon.type1.replace("{", "").replace("}", "").trim()
-        val pType2 = pokemon.type2.replace("{", "").replace("}", "").trim()
+        val pType1 = pokemon.getType1().replace("{", "").replace("}", "").trim()
+        val pType2 = pokemon.getType2().replace("{", "").replace("}", "").trim()
         
         return cleanType.equals(pType1, ignoreCase = true) || 
                (pType2 != "None" && cleanType.equals(pType2, ignoreCase = true))
@@ -206,7 +206,7 @@ class MoveRepository(private val context: Context) {
 
         var effectiveness = 0
         if (enemy != null) {
-            effectiveness = calculateMoveEffectiveness(cleanType, moveData.ignores, enemy.type1, enemy.type2)
+            effectiveness = calculateMoveEffectiveness(cleanType, moveData.ignores, enemy.getType1(), enemy.getType2())
             if (effectiveness == -4) effectiveness = -3
             if (effectiveness == 4) effectiveness = 3
             
@@ -216,8 +216,8 @@ class MoveRepository(private val context: Context) {
 
         if (ownWeather == "Stealth Rock") {
             var sr_change = -1
-            val pType1 = pokemon.type1.replace("{", "").replace("}", "").trim()
-            val pType2 = pokemon.type2.replace("{", "").replace("}", "").trim()
+            val pType1 = pokemon.getType1().replace("{", "").replace("}", "").trim()
+            val pType2 = pokemon.getType2().replace("{", "").replace("}", "").trim()
             val sr_eff = calculateMoveEffectiveness("Rock", moveData.ignores, pType1, pType2)
             if (sr_eff <= -1 || pType1 == "Rock" || pType2 == "Rock") sr_change = 0
             if (sr_eff >= 1) sr_change = -2
@@ -225,16 +225,16 @@ class MoveRepository(private val context: Context) {
         }
 
         if (ownWeather == "Hail" || enemyWeather == "Hail") {
-            val pType1 = pokemon.type1.replace("{", "").replace("}", "").trim()
-            val pType2 = pokemon.type2.replace("{", "").replace("}", "").trim()
+            val pType1 = pokemon.getType1().replace("{", "").replace("}", "").trim()
+            val pType2 = pokemon.getType2().replace("{", "").replace("}", "").trim()
             if (!pType1.equals("Ice", ignoreCase = true) && !pType2.equals("Ice", ignoreCase = true)) {
                 powerval -= 1
             }
         }
 
         if (ownWeather == "Sandy" || enemyWeather == "Sandy") {
-            val pType1 = pokemon.type1.replace("{", "").replace("}", "").trim()
-            val pType2 = pokemon.type2.replace("{", "").replace("}", "").trim()
+            val pType1 = pokemon.getType1().replace("{", "").replace("}", "").trim()
+            val pType2 = pokemon.getType2().replace("{", "").replace("}", "").trim()
             if (!pType1.equals("Ground", ignoreCase = true) && !pType2.equals("Ground", ignoreCase = true) &&
                 !pType1.equals("Rock", ignoreCase = true) && !pType2.equals("Rock", ignoreCase = true) &&
                 !pType1.equals("Steel", ignoreCase = true) && !pType2.equals("Steel", ignoreCase = true)) {
@@ -306,7 +306,7 @@ class MoveRepository(private val context: Context) {
 
         fun check(data: MoveData?) {
             if (data == null) return
-            val total = calculateMoveEffectiveness(data.type, data.ignores, enemy.type1, enemy.type2)
+            val total = calculateMoveEffectiveness(data.type, data.ignores, enemy.getType1(), enemy.getType2())
             if (total > 0) hasSuper = true
             if (total >= 0) hasNeutral = true
         }

@@ -8,8 +8,8 @@ data class PokemonInfo(
     val id: String,
     var name: String,
     val base_level: Int,
-    val type1: String,
-    val type2: String,
+    private val type1: String,
+    private val type2: String,
     var pokedexEntries: List<String>,
     val move1: String,
     val move2: String,
@@ -36,6 +36,22 @@ data class PokemonInfo(
         return statusCondition.equals("Froz", ignoreCase = true) ||
                 statusCondition.equals("Para", ignoreCase = true) ||
                 statusCondition.equals("Slee", ignoreCase = true)
+    }
+
+    fun getType1(): String{
+        if(isTeraActivated)
+        {
+            return teraType!!
+        }
+        return type1
+    }
+
+    fun getType2(): String{
+        if(isTeraActivated)
+        {
+            return "None"
+        }
+        return type2
     }
 
 }
