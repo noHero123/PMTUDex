@@ -43,6 +43,11 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
     private val _updateUINoSync = MutableStateFlow<Boolean?>(false)
     val updateUINoSync: StateFlow<Boolean?> = _updateUINoSync
 
+    var lastSelectedIndex: Int? = null
+    var lastPokemonId = ""
+
+    var lastEnemySelectedIndex: Int? = null
+
     init {
         loadTeamData()
     }
@@ -66,14 +71,13 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
 
 
     fun setOwnPokemon(pokemon: PokemonInfo?, index: Int? = null) {
-        val targetIndex = if (index == null && pokemon != null) {
-            val idx = _teamPokemon.value.indexOfFirst { it?.id == pokemon.id }
-            if (idx != -1) idx else null
-        } else {
-            index
-        }
         _ownPokemon.value = pokemon
-        _currentTeamIndex.value = targetIndex
+        _currentTeamIndex.value = index
+        if (index != null) {
+            lastSelectedIndex = index
+            if(pokemon!=null)
+                lastPokemonId = pokemon.id
+        }
     }
 
     fun setEnemyPokemon(pokemon: PokemonInfo?) {
@@ -109,6 +113,7 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
             newTeam[index] = null
             _currentTeamIndex.value = null
             _teamPokemon.value = newTeam
+            resetLastIndex()
             saveTeamData()
         }
     }
@@ -116,14 +121,24 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
     fun switchWithEnemy() {
         val oldOwn = _ownPokemon.value
         val oldWeather = _ownWeather.value
+        val oldTeamIndex = lastSelectedIndex
+
+        lastSelectedIndex = lastEnemySelectedIndex
+        lastEnemySelectedIndex = _currentTeamIndex.value
 
         _ownPokemon.value = _enemyPokemon.value
         _enemyPokemon.value = oldOwn
 
         _ownWeather.value = _enemyWeather.value
         _enemyWeather.value = oldWeather
-        
-        _currentTeamIndex.value = null
+
+        _currentTeamIndex.value = lastSelectedIndex
+    }
+
+    fun resetLastIndex()
+    {
+        lastSelectedIndex = -1
+        lastPokemonId=""
     }
 
     fun saveTeamData() {
@@ -168,6 +183,8 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
                         if (first != -1) {
                             _ownPokemon.value = loadedTeam[first]
                             _currentTeamIndex.value = first
+                            lastSelectedIndex = first
+                            lastPokemonId = _ownPokemon.value!!.id
                         }
                     }
                 }
@@ -181,6 +198,8 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
     fun setTeam(newList: Array<PokemonInfo?>) {
         _teamPokemon.value = newList
         _currentTeamIndex.value = null
+        lastSelectedIndex = null
+        lastPokemonId = ""
     }
     private fun bitmapToBase64(bitmap: Bitmap): String {
         val outputStream = ByteArrayOutputStream()

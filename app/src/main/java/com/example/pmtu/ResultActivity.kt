@@ -551,8 +551,12 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             } else if (pokemon != null) {
                 slotIv.setBackgroundColor(Color.WHITE)
                 if (enemy != null) {
-                    if (moveRepository.getPokemonEffectiveness(pokemon, enemy) == 1) addArrow(slotContainer, "arrow_green.png", Gravity.BOTTOM or Gravity.START)
-                    if (moveRepository.isPokemonDangerous(enemy, pokemon) == 1) addArrow(slotContainer, "arrow_red.png", Gravity.BOTTOM or Gravity.END)
+                    val ownEffectiveness = moveRepository.getPokemonEffectiveness(pokemon, enemy)
+                    if ( ownEffectiveness== 1) addArrow(slotContainer, "arrow_green.png", Gravity.BOTTOM or Gravity.START)
+                    if ( ownEffectiveness== -1) addArrow(slotContainer, "arrow_red.png", Gravity.BOTTOM or Gravity.START)
+                    val enemyEffectiveness = moveRepository.getPokemonEffectiveness(enemy, pokemon)
+                    if (enemyEffectiveness == 1) addArrow(slotContainer, "arrow_red.png", Gravity.BOTTOM or Gravity.END)
+                    if (enemyEffectiveness == -1) addArrow(slotContainer, "arrow_green.png", Gravity.BOTTOM or Gravity.END)
                 }
                 pokemon.spriteBitmap?.let {
                     slotIv.setImageBitmap(it)
@@ -911,7 +915,18 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             val info = pokedexRepository.findPokemonByNumber(number, spriteUrl, artUrl)
             withContext(Dispatchers.Main) {
                 if (info != null) {
-                    viewModel.setOwnPokemon(info, null)
+                    var nextIndex:Int? = null
+                    if(info.id == viewModel.lastPokemonId)
+                    {
+                        nextIndex = viewModel.lastSelectedIndex
+                    }
+                    if(nextIndex == null) {
+                        viewModel.setOwnPokemon(info, nextIndex)
+                    }
+                    else{
+                        val team = viewModel.teamPokemon.value
+                        viewModel.setOwnPokemon(team[nextIndex], nextIndex)
+                    }
                     //syncViaHttp()
                     viewModel.setUpdateUI()
                 } else {
@@ -991,7 +1006,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             bitmap?.let {
                 iv.setImageBitmap(it)
-                iv.setOnClickListener { get_pokedex(number, spriteUrl, "https://www.serebii.net/pokemon/art/$number.png") }
+                iv.setOnClickListener {
+                    get_pokedex(number, spriteUrl, "https://www.serebii.net/pokemon/art/$number.png")
+                }
             }
         }
     }
