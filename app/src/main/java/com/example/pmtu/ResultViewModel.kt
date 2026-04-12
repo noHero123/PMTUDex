@@ -103,6 +103,8 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
             newTeam[slot] = current
             _teamPokemon.value = newTeam
             _currentTeamIndex.value = slot
+            lastSelectedIndex = slot
+            lastPokemonId = current.id
             saveTeamData()
         }
     }
