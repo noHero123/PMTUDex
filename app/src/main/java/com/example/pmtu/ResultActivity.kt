@@ -1,5 +1,6 @@
 package com.example.pmtu
 
+import android.widget.PopupWindow
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -78,6 +79,27 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var scanHandler: ScanHandler
     private lateinit var uiMapper: PokemonUiMapper
 
+    private val detailsMap = mutableMapOf<String, Array<String>>()
+
+    private fun loadDetailsFromCsv() {
+        try {assets.open("details.csv").bufferedReader().useLines { lines ->
+            lines.forEach { line ->
+                val parts = line.split(",", limit = 3)
+                if (parts.size == 3) {
+                    // key to lowercase for case-insensitive lookup
+                    var detkey = parts[0].trim().lowercase()
+                    detkey = detkey.replace("\"","")
+                    val headline = parts[1].trim().trim('\"')
+                    val text =  parts[2].trim().trim('\"')
+                    detailsMap[detkey] = arrayOf(headline,text)
+                }
+            }
+        }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private val statusListener = { status: HttpSyncService.Status, _: String? ->
         if (status == HttpSyncService.Status.CONNECTED) {
             syncViaHttp()
@@ -125,6 +147,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         setupHttpSync()
         setupUI()
         observeViewModel()
+        loadDetailsFromCsv()
 
         tts = TextToSpeech(this, this)
 
@@ -665,11 +688,32 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
         }
 
-        val moveTv = TextView(this).apply {
+        val moveTextView = TextView(this).apply {
+            // This line is mandatory for ClickableSpans to work!
+            movementMethod = android.text.method.LinkMovementMethod.getInstance()
+
+            // Optional: Prevent the background from turning a weird color when clicking the icon
+            highlightColor = android.graphics.Color.TRANSPARENT
+        }
+        moveTextView.textSize = 20f
+        moveTextView.text = uiMapper.formatMoveText(
+            result,
+            moveTextView,
+            prefs.getString("language", "en") ?: "en",
+            viewModel.ownPokemon.value,
+            viewModel.enemyPokemon.value,
+            viewModel.ownWeather.value,
+            viewModel.enemyWeather.value,
+            pokedexRepository
+        ){ effectName, view, path ->
+            showDetailPopup(effectName, view, path) // Your popup function
+        }
+
+        /*val moveTv = TextView(this).apply {
             text = uiMapper.formatMoveText(result, this, prefs.getString("language", "en") ?: "en", viewModel.ownPokemon.value,viewModel.enemyPokemon.value, viewModel.ownWeather.value, viewModel.enemyWeather.value, pokedexRepository)
             textSize = 20f
-        }
-        row.addView(moveTv)
+        }*/
+        row.addView(moveTextView)
 
         // Arrow
         if (viewModel.enemyPokemon.value != null && result.effectiveness != 0) {
@@ -819,10 +863,17 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         // Status Condition
         own?.statusCondition?.let { status ->
             if (status.isNotEmpty()) {
+                val imagePath = "status_icons/$status.png"
                 val statusIv = ImageView(this).apply {
-                    try { setImageBitmap(BitmapFactory.decodeStream(assets.open("status_icons/$status.png"))) } catch (e: Exception) {}
+
+                    try {
+                        setImageBitmap(BitmapFactory.decodeStream(assets.open(imagePath)))
+                    }
+                    catch (e: Exception) {}
                     layoutParams = LinearLayout.LayoutParams(100, 100)
-                }
+                    setOnClickListener { showDetailPopup(status, this, imagePath) }
+                     }
+
                 statusFieldContainer.addView(statusIv)
                 val trashIv = ImageView(this).apply {
                     try { setImageBitmap(BitmapFactory.decodeStream(assets.open("trash.png"))) } catch (e: Exception) {}
@@ -843,10 +894,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val own = viewModel.ownPokemon.value
 
         // Field Symbol
+
         viewModel.ownWeather.value?.let { weather ->
+            val weatherImagePath = "Field/$weather.png"
             val weatherIv = ImageView(this).apply {
-                try { setImageBitmap(BitmapFactory.decodeStream(assets.open("Field/$weather.png"))) } catch (e: Exception) {}
+                try { setImageBitmap(BitmapFactory.decodeStream(assets.open(weatherImagePath))) } catch (e: Exception) {}
                 layoutParams = LinearLayout.LayoutParams(100, 100)
+                setOnClickListener { showDetailPopup(weather, this, weatherImagePath) }
             }
             fieldEffectsContainer.addView(weatherIv)
             val trashIv = ImageView(this).apply {
@@ -872,9 +926,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         enemyStatusContainer.removeAllViews()
         viewModel.enemyWeather.value?.let { weather ->
+            val weatherImagePath = "Field/$weather.png"
             val weatherIv = ImageView(this).apply {
                 layoutParams = LinearLayout.LayoutParams(80, 80).apply { bottomMargin = 8 }
-                try { setImageBitmap(BitmapFactory.decodeStream(assets.open("Field/$weather.png"))) } catch (e: Exception) {}
+                try { setImageBitmap(BitmapFactory.decodeStream(assets.open(weatherImagePath))) } catch (e: Exception) {}
+                setOnClickListener { showDetailPopup(weather, this, weatherImagePath) }
             }
             enemyStatusContainer.addView(weatherIv, 0)
         }
@@ -882,12 +938,14 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         // Status Condition
         enemy?.statusCondition?.let { status ->
             if (status.isNotEmpty()) {
+                val statusPath = "status_icons/$status.png"
                 val statusIv = ImageView(this).apply {
                     try {
-                        setImageBitmap(BitmapFactory.decodeStream(assets.open("status_icons/$status.png")))
+                        setImageBitmap(BitmapFactory.decodeStream(assets.open(statusPath)))
                     } catch (e: Exception) {
                     }
                     layoutParams = LinearLayout.LayoutParams(80, 80)
+                    setOnClickListener { showDetailPopup(status, this, statusPath) }
                 }
                 enemyStatusContainer.addView(statusIv)
             }
@@ -1046,6 +1104,98 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             isTtsReady = true
             pendingTTS?.let { speakOut(it); pendingTTS = null }
         }
+    }
+
+    private fun showDetailPopup(key: String, anchorView: View, imagePath: String? = null) {
+        var description = detailsMap[key.lowercase()]
+        if (description == null)
+        {
+            if(key.startsWith("B ") || key.startsWith("W ")) {
+                val splits = key.split(" ")
+                val new_key = splits[0]+" "+splits[1]
+                description = detailsMap[new_key.lowercase()]
+            }
+        }
+
+        if (description==null)
+        {
+            description =arrayOf(key,"unknown data")
+        }
+
+        // 1. Create the layout programmatically
+        val popupView = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundResource(android.R.drawable.toast_frame) // Built-in dark background
+            background.setTint(Color.parseColor("#EE333333")) // Semi-transparent dark gray
+            setPadding(32, 24, 32, 24)
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val headLineView = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        val headlineText = description[0]
+        val titleTv = TextView(this).apply {
+            text = headlineText
+            textSize = 18f
+            setTextColor(Color.WHITE)
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(16, 0, 0, 8)
+        }
+
+
+
+        if(imagePath != null) {
+            val iv = ImageView(this)
+            val size = 60
+            iv.layoutParams = LinearLayout.LayoutParams(size*2, size).apply {
+                bottomMargin = 4
+            }
+            try {
+                val inputStream = this.assets.open(imagePath)
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                iv.setImageBitmap(bitmap)
+            } catch (e: Exception) {
+            }
+            headLineView.addView(iv)
+        }
+
+        headLineView.addView(titleTv)
+
+        val descTv = TextView(this).apply {
+            text = description[1]
+            textSize = 16f
+            setTextColor(Color.LTGRAY)
+            maxWidth = 800 // Prevent the popup from being too wide
+            setPadding(0,0,0,0)
+        }
+
+        popupView.addView(headLineView)
+        popupView.addView(descTv)
+
+        // 2. Initialize the PopupWindow
+        val popupWindow = PopupWindow(
+            popupView,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true // Focusable (allows tapping outside to dismiss)
+        ).apply {
+            elevation = 10f
+            animationStyle = android.R.style.Animation_Dialog
+        }
+
+        // 3. Show the popup anchored to the clicked view
+        popupWindow.showAsDropDown(anchorView, 0, 10)
+
+        Toast.makeText(this, "Select ${key}", Toast.LENGTH_SHORT).show()
     }
 
     private fun speakOut(text: String) {

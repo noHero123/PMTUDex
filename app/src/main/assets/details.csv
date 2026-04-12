@@ -1,0 +1,53 @@
+#### Moves
+"Rest","Rest","After the battle round, user discards any attached status and gains the Sleep status with a counter of 2."
+#### MAX Moves
+"{MAX} Steelspike","Steelspike","Opponent Pokémon has Disadvantage for the rest of the battle or until switched out."
+"{G-MAX} Depletion", "Depletion", "The move used by the opponent Pokémon this round gains Recharge (This effect can only be applied to one of the opponent Pokémon moves)."
+
+### Status conditions
+"Burn","Burned","Reduces the power of your move by 1."
+"Froz","Freeze","can only attack with typeless move with 0 power."
+"Pois","Poisoned","omg"
+
+### Weather
+"Mist", "Misty weather", "does something"
+"Renewal", "Renewal","does something"
+"Hail", "Hail","does something"
+
+#### Additional effects
+"W Adv", "ADVANTAGE", "User rolls 1 extra attack die and discards the lowest result."
+"W DoubAdv","DOUBLE ADVANTAGE","User rolls 2 extra attack dice and discards the two lowest results."
+"W KO", "K.O. (Self)", "User faints at the end of the round."
+"W Switch", "SWITCHOUT (SELF)", "After applying the opponents move effects, the user is switched out of battle with another from its team, but the switched in Pokémon uses this move for this battle round. This effect does not apply to wild or Gym Leader Pokémon."
+"W Conf","CONFUSION (SELF)", "User gains the Confused status."
+"W PRIORITY","PRIORITY", "Any effects used by the opponent’s Pokémon that target the user are ignored until the end of the round. No effect if the opponent has Protection."
+"W StatDown","STAT DOWN", "Beginning next battle round, user gains Disadvantage until the end of the battle (or until switched out)."
+"W Ignore","IGNORE TYPE", "Do not apply any type effectiveness bonuses/penalties to this move."
+"W Recharge","RECHARGE", "Once used, the user cannot select this move for the rest of the battle or until the user is switched out."
+"W Prot","PROTECTION", "This battle round, the Attack Strength of the opponents move becomes 0 and all move effects that target the user are ignored."
+"W Reversal","REVERSAL", "User adds the Attack Strength of the opponent’s selected move to this move."
+"W Repeat","REPEAT", "The Attack Strength of this move increases by 1 for each successive round it has been used this battle, up to 3 times."
+"W Rage","ENRAGED", "User gains Advantage for this battle round if the opposing Pokémon uses a move with an Attack Strength greater than 0."
+"W Add","ADD DIE", "User rolls an extra attack die and the results are added together."
+"W D4","D4", "User must roll 4-sided die for their attack roll."
+"W D8","HIGH CRIT (D8)", "User must roll 8-sided die for the attack roll (treating 7 as a 5 and 8 as a 6)."
+"W You","1/2 LEVEL (SELF)", "The Attack Strength of this move is equal to half the level of the user (rounded down)."
+"W Life","LIFE RECOVERY", "Add 1/3 of the user’s Attack Roll (rounded down) to the final total."
+"W Boost","CONDITION BOOST", "This move gains 1 Attack Strength this round if the opponent has a status condition during your attack roll."
+"W Revival","REVIVAL", "Revive a Pokémon on the users team immediately after effect die rolls. Only one Pokémon per battle, per team can be revived this way"
+"W Status","STATUS HEAL", "Roll a 4-sided die. Remove that many statuses from users team immediately after effect die rolls."
+
+"B Dis", "DISADVANTAGE", "Opponent rolls 1 extra attack die and discards the highest result."
+"B DoubDis", "DOUBLE DISADVANTAGE", "Opponent rolls 2 extra attack dice and discards the 2 highest results."
+"B KO", "K.O. (OPPONENT)","Opponent Pokémon faints at the end of the round."
+"B Switch","SWITCHOUT (OPPONENT)","Before applying their move effects, the opponent Pokémon is switched out of battle with another from its team at random. The switched in Pokémon then selects a move to use. This effect does not apply to wild Pokémon, Gym Leader Pokémon, or Pokémon with Priority or Protection."
+"B Block","BLOCK ITEM","Opponent Pokémon cannot make use of their attach card for the remainder of the battle or until switched out."
+"B Lock","ESCAPE PREVENTION","For the rest of the battle, the opponent Pokémon cannot be switched out."
+"B Conf","CONFUSION (OPPONENT)","Opponent gains the Confused status."
+"B Burn","BURN","Opponent gains the Burned status."
+"B Freeze","FREEZE","Opponent gains the Frozen status."
+"B Pois","POISON","Opponent gains the Poisoned status."
+"B Sleep","SLEEP","Opponent gains the Sleep status."
+"B Curse","CURSE","Opponent gains the Cursed status."
+"B Para","PARALYZE","Opponent gains the Paralyzed status."
+"B Opp","1/2 LEVEL (OPPONENT)","The Attack Strength of this move is equal to half the level of the oppponent (rounded down)."

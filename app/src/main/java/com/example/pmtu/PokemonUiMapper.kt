@@ -1,25 +1,23 @@
 package com.example.pmtu
 
 import android.content.Context
-import android.graphics.Bitmap
+import android.content.res.AssetManager
 import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
 import android.text.style.ImageSpan
-import android.util.Log
-import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import java.io.File
+import java.io.IOException
+import java.io.InputStream
+
 
 class PokemonUiMapper(private val context: Context) {
 
@@ -70,7 +68,8 @@ class PokemonUiMapper(private val context: Context) {
         enemyPokemon: PokemonInfo?,
         ownWeather: String?,
         enemyWeather: String?,
-        pokedexRepository: PokedexRepository
+        pokedexRepository: PokedexRepository,
+        onEffectClicked: (String, View, String?) -> Unit
     ): CharSequence {
         val moveData = result.moveData
         val powerval = result.power
@@ -91,11 +90,45 @@ class PokemonUiMapper(private val context: Context) {
         } catch (e: Exception) {
             builder.append(moveData.type ?: "").append(" ")
         }
+        var finalMoveName = if (lang == "de") moveData.germanName else moveData.englishName
+        val isSpecialMove = moveData.powerStr!!.contains("*")
+        if(isSpecialMove)
+        {
+            finalMoveName+="*"
+        }
+        var detailName = moveData.englishName!!
+        if(moveData.wurfel != null )
+        {
+            if(moveData.wurfel != null && moveData.wurfel.contains("G-Max"))
+            {
+                detailName = "{G-MAX} " + detailName
+            }
+            else
+            {
+                if(moveData.wurfel != null && moveData.wurfel.contains("Max"))
+                {
+                    detailName = "{MAX} " + detailName
+                }
+            }
+        }
 
-        val finalMoveName = if (lang == "de") moveData.germanName else moveData.englishName
         //val wurfel = moveData.wurfel ?: ""
         //val cleanWurfel = wurfel.replace(Regex("\\{.*?d[48]\\}"), "").trim()
+        val startText = builder.length
         builder.append(finalMoveName ?: "").append(" ")//.append(cleanWurfel)
+        val endText = builder.length
+        if (onEffectClicked != null && isSpecialMove) {
+            val clickableSpan = object : android.text.style.ClickableSpan() {
+                override fun onClick(widget: View) {
+                    onEffectClicked(detailName, widget, null)
+                }
+                override fun updateDrawState(ds: android.text.TextPaint) {
+                    ds.isUnderlineText = false // Remove the default link underline
+                }
+            }
+            builder.setSpan(clickableSpan, startText, endText, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+
 
         val start = builder.length
         builder.append(powerval.toString())
@@ -160,42 +193,52 @@ class PokemonUiMapper(private val context: Context) {
             }
             else
             {
-                addEffectIcon(builder, eff, textView)
+                addEffectIcon(builder, eff, textView, onEffectClicked)
             }
         }
 
         //additional effects:
         if(ownWeather == "Renewal")
         {
-            addEffectIcon(builder, "W Life", textView)
+            addEffectIcon(builder, "W Life", textView, onEffectClicked)
         }
         if(enemyWeather != "Mist" && ownPokemon?.baseItem == "Evio" && ownPokemon.isBaseItemActivated && !pokedexRepository.isFullyEvolved(ownPokemon.id))
         {
             //evio adds a dis to your attacks:
-            addEffectIcon(builder, "B Dis 1", textView)
+            addEffectIcon(builder, "B Dis 1", textView, onEffectClicked)
         }
         if(enemyWeather != "Mist" && ownPokemon?.baseItem == "King" && !usedKing){
-            addEffectIcon(builder, "B Dis 5", textView)
+            addEffectIcon(builder, "B Dis 5", textView, onEffectClicked)
         }
         if(ownPokemon?.baseItem == "Zoom" && !usedZoom){
-            addEffectIcon(builder, "W Adv 5", textView)
+            addEffectIcon(builder, "W Adv 5", textView, onEffectClicked)
         }
         if(ownPokemon?.baseItem == "Quic" && ownPokemon.isBaseItemActivated){
-            addEffectIcon(builder, "W Priority", textView)
+            addEffectIcon(builder, "W Priority", textView, onEffectClicked)
         }
         if(ownPokemon?.baseItem == "Razo"){
-            addEffectIcon(builder, "W Extra 6", textView)
+            addEffectIcon(builder, "W Extra 6", textView, onEffectClicked)
         }
 
 
         return builder
     }
 
-    private fun addEffectIcon(builder: SpannableStringBuilder, effect: String?, textView: TextView) {
-        if (effect.isNullOrBlank()) return
-        
+    private fun isAssetExists(pathInAssetsDir: String): Boolean {
+
+        return try {
+             context.assets.open(pathInAssetsDir).use{true}
+        } catch (e: IOException) {
+            false
+        }
+    }
+
+    fun get_add_effect_icon_path(effect: String?):String?
+    {
+        if (effect.isNullOrBlank()) return null
+
         val cleanEffect = effect.replace("{", "").replace("}", "").trim()
-        if (cleanEffect.isEmpty()) return
+        if (cleanEffect.isEmpty()) return null
 
         var folder: String? = null
         var imageName: String = cleanEffect
@@ -223,14 +266,15 @@ class PokemonUiMapper(private val context: Context) {
         mappedName = mappedName.replace("Add", "AddDice")
         mappedName = mappedName.replace("Extra", "Additional")
 
-
+        mappedName = mappedName.replace("Switch", "Switch")
+        mappedName = mappedName.replace("KO", "KO")
         mappedName = mappedName.replace("Status", "StatusHeal")
         mappedName = mappedName.replace("Life", "Life Drain")
         mappedName = mappedName.replace("You", "You Icon")
         mappedName = mappedName.replace("Opp", "Opponent Icon")
         mappedName = mappedName.replace("Block", "Block Item")
         mappedName = mappedName.replace("Ignore", "Ignore Type")
-        mappedName = mappedName.replace("Prot 1", "Protection")
+        mappedName = mappedName.replace("Prot", "Protection")
         mappedName = mappedName.replace("Burn", "Burned")
         mappedName = mappedName.replace("Conf", "Confused")
         mappedName = mappedName.replace("Pois", "Poison")
@@ -243,18 +287,6 @@ class PokemonUiMapper(private val context: Context) {
         mappedName = mappedName.replace("Sleep", "Sleep")
         mappedName = mappedName.replace("Boost", "Condition Boost")
 
-
-
-
-        // Renewal
-        // Rainy
-        //Priority - Priority
-        //StatDown- StatDown
-
-
-
-
-
         if (mappedName.contains( "AdvDis"))
         {
             mappedName = "AdvDis 6"
@@ -265,39 +297,61 @@ class PokemonUiMapper(private val context: Context) {
             pathsToTry.add("move_symbols/$folder/$mappedName.png")
             // Try with space mapping too if it looks like "Word Number"
             if (mappedName.contains(" ")) {
-                 // already handled
+                // already handled
             } else if (imageName != mappedName) {
                 pathsToTry.add("move_symbols/$folder/$imageName.png")
             }
         } else {
             pathsToTry.add("move_symbols/$cleanEffect.png")
         }
+        val path = context.filesDir.path
 
-        var loaded = false
         for (path in pathsToTry) {
-            try {
-                val inputStream = context.assets.open(path)
-                val bitmap = BitmapFactory.decodeStream(inputStream)
-                val drawable: Drawable = BitmapDrawable(context.resources, bitmap)
-                val size = (textView.textSize * 1.5).toInt()
-                drawable.setBounds(0, 0, (size * bitmap.width / bitmap.height), size)
-                
-                builder.append("  ")
-                builder.setSpan(
-                    ImageSpan(drawable, ImageSpan.ALIGN_BOTTOM),
-                    builder.length - 2,
-                    builder.length - 1,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-                loaded = true
-                break
-            } catch (e: Exception) {
-                // Continue
+            if (isAssetExists(path)) {
+                return path
             }
         }
+        return null
+    }
+    private fun addEffectIcon(builder: SpannableStringBuilder, effect: String?, textView: TextView, onEffectClicked: ((String, View, String?) -> Unit)? = null) {
+        if (effect.isNullOrBlank()) return
+        val cleanEffect = effect.replace("{", "").replace("}", "").trim()
+        if (cleanEffect.isEmpty()) return
 
-        if (!loaded) {
+        val image_path = get_add_effect_icon_path(effect)
+        if (image_path == null) {
             builder.append(" ").append(effect)
+            return
+        }
+        try {
+            val inputStream = context.assets.open(image_path)
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            val drawable: Drawable = BitmapDrawable(context.resources, bitmap)
+            val size = (textView.textSize * 1.5).toInt()
+            drawable.setBounds(0, 0, (size * bitmap.width / bitmap.height), size)
+            val start = builder.length
+            builder.append("  ")
+            val end = builder.length - 1
+            builder.setSpan(
+                ImageSpan(drawable, ImageSpan.ALIGN_BOTTOM),
+                start,
+                end,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            // 2. The ClickableSpan (The logic)
+            if (onEffectClicked != null) {
+                val clickableSpan = object : android.text.style.ClickableSpan() {
+                    override fun onClick(widget: View) {
+                        onEffectClicked(cleanEffect, widget, image_path)
+                    }
+                    override fun updateDrawState(ds: android.text.TextPaint) {
+                        ds.isUnderlineText = false // Remove the default link underline
+                    }
+                }
+                builder.setSpan(clickableSpan, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        } catch (e: Exception) {
         }
     }
+
 }
