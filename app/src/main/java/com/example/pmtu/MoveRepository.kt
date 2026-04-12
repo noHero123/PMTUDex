@@ -133,6 +133,7 @@ class MoveRepository(private val context: Context) {
         val isStabSuffix = moveName.endsWith("(S)")
         var powerStr = if (isStabSuffix) moveData.powerStab else moveData.powerStr
         powerStr = powerStr?.replace("*", "") ?: "0"
+        var cleanType = moveData.type?.replace("{", "")?.replace("}", "")?.trim() ?: ""
 
         var powerval: Int
         var originalBasePower: Int
@@ -143,11 +144,9 @@ class MoveRepository(private val context: Context) {
 
         }
 
-        if(pokemon.statusCondition.equals("Burn", ignoreCase = true))
-        {
-            if(originalBasePower > 0) {
-                originalBasePower -= 1
-            }
+        if(pokemon.hasTypelessMove()){
+            originalBasePower = 0
+            cleanType = "Typeless"
         }
 
         if (pokemon.baseItem.equals("Alph", ignoreCase = true) && originalBasePower > 0 && originalBasePower < 4) {
@@ -157,11 +156,11 @@ class MoveRepository(private val context: Context) {
             }
         }
 
-        var cleanType = moveData.type?.replace("{", "")?.replace("}", "")?.trim() ?: ""
-
-        if(pokemon.hasTypelessMove()){
-            originalBasePower = 0
-            cleanType = "Typeless"
+        if(pokemon.statusCondition.equals("Burn", ignoreCase = true))
+        {
+            if(originalBasePower > 0) {
+                originalBasePower -= 1
+            }
         }
 
         powerval = originalBasePower
