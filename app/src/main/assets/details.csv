@@ -1,18 +1,29 @@
-#### Moves
-"Rest","Rest","After the battle round, user discards any attached status and gains the Sleep status with a counter of 2."
-#### MAX Moves
-"{MAX} Steelspike","Steelspike","Opponent Pokémon has Disadvantage for the rest of the battle or until switched out."
-"{G-MAX} Depletion", "Depletion", "The move used by the opponent Pokémon this round gains Recharge (This effect can only be applied to one of the opponent Pokémon moves)."
 
 ### Status conditions
-"Burn","Burned","Reduces the power of your move by 1."
-"Froz","Freeze","can only attack with typeless move with 0 power."
-"Pois","Poisoned","omg"
+"Burn","Burned","Attack Strength of this Pokémon's moves is reduced by 1 (minimum 0). At the end of a battle round involving this Pokémon, add a counter to this status. When this status has 4 counters, this Pokémon faits. Discard this status upon fainting."
+"Conf","Confused","If this Pokémon rolls an odd number on its Attack Roll, add their chosen move's Attack Strength to the opponents final attack total. Discard this status if this Pokémon exits battle or upon fainting."
+"Froz","Frozen","This Pokémon cannot select a move. They attack with a type-less move with an Attack Strength of 0. Before selecting a move roll a D4. On a 4 or upon fainting, discard this status."
+"Curs","Cursed","At the end of the round, add a counter to this status. When this status has 2 counters, this Pokémon faints. Discard this status if this Pokémon exits battle or upon fainting. Only 1 Pokémon per team may gain the Cursed status in a battle."
+"Para","Paralyzed","This Pokémon cannot select a move. They attack with a type-less move with an Attack Strength of 0. At the end of the battle round, flip this status over."
+"Pois","Poisoned","At the end of a battle round involving this Pokémon, or after every 3 spaces moved on your turn, add a counter to this status. When this status has 4 counters, this Pokémon faints. Poisoned Pokémon always lose ties, regardless of the kind of battle. If to Poisoned Pokémon tie, they both faint. Discard this status upon fainting."
+"Slee","Sleep","This Pokémon cannot select a move. They attack with a type-less move with an Attack Strength of 0. Before moves are selected, remove 1 counter from this status. If there are no counters left or upon fainting, discard this status."
 
-### Weather
-"Mist", "Misty weather", "does something"
-"Renewal", "Renewal","does something"
-"Hail", "Hail","does something"
+### weather effect on move
+"Clear", "FIELD CLEAR", "After the effect rolls this round, discard all Field Move cards in play."
+"Electric Terrain", "ELECTRIC TERRAIN", "Play the Electric Terrain Field Move card."
+"Grassy Terrain", "GRASSY TERRAIN", "Play the Grassy Terrain Field Move card."
+"Hail", "HAIL", "Play the Hail Field Move card."
+"Mist", "MIST", "Play the Mist Field Move card."
+"Misty Terrain", "MISTY TERRAIN", "Play the Misty Terrain Field Move card."
+"Psychic Terrain", "PSYCHIC TERRAIN", "Play the Psychic Terrain Field Move card."
+"Rain", "RAIN", "Play the Rain Field Move card."
+"Renewal", "RENEWAL", "Play the Renewal Field Move card."
+"Safeguard", "SAFEGUARD", "Play the Safeguard Field Move card."
+"Sandstorm", "SANDSTORM", "Play the Sandstorm Field Move card."
+"Spikes","SPIKES","Play the Spikes Field Move card."
+"Stealth Rock", "STEALTH ROCK", "Play the Stealth Rock Field Move card."
+"Sunny", "HARSH SUNLIGHT", "Play the Harsh Sunlight Field Move card."
+"Toxic Spikes", "TOXIC SPIKES", "Play the Toxic Spikes Field Move card."
 
 #### Additional effects
 "W Adv", "ADVANTAGE", "User rolls 1 extra attack die and discards the lowest result."
@@ -51,3 +62,9 @@
 "B Curse","CURSE","Opponent gains the Cursed status."
 "B Para","PARALYZE","Opponent gains the Paralyzed status."
 "B Opp","1/2 LEVEL (OPPONENT)","The Attack Strength of this move is equal to half the level of the oppponent (rounded down)."
+
+#### Moves
+"Rest","Rest","After the battle round, user discards any attached status and gains the Sleep status with a counter of 2."
+#### MAX Moves
+"{MAX} Steelspike","Steelspike","Opponent Pokémon has Disadvantage for the rest of the battle or until switched out."
+"{G-MAX} Depletion", "Depletion", "The move used by the opponent Pokémon this round gains Recharge (This effect can only be applied to one of the opponent Pokémon moves)."
