@@ -100,7 +100,7 @@
 "{MAX} Starfall","STARFALL","Play the Misty Terrain Field Move card."
 "{MAX} Guard","GUARD","User gains Protection - This battle round, the Attack Strength of the opponents move becomes 0 and all move effects that target the user are ignored."
 
-"{G-MAX} Befunddle", "BEFUDDLE", "Roll the effect die: 1-2: Opponent gains the Poisoned status. 3-4: Opponent gains the Paralyzed status. 5-6: Opponent gains the Sleep status."
+"{G-MAX} Befuddle", "BEFUDDLE", "Roll the effect die: 1-2: Opponent gains the Poisoned status. 3-4: Opponent gains the Paralyzed status. 5-6: Opponent gains the Sleep status."
 "{G-MAX} Depletion", "Depletion", "The move used by the opponent Pokémon this round gains Recharge (This effect can only be applied to one of the opponent Pokémon moves)."
 "{G-MAX Gold Rush} ", "GOLD RUSH", "User draws an item or collects 4 PokéCoins at the end of the battle. This effect does not stack."
 "{G-MAX} Gravitas", "GRAVITAS", "Flying-type Pokémon do not resist Ground-type moves for the remainder of the battle."
