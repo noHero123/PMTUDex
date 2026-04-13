@@ -897,10 +897,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         viewModel.ownWeather.value?.let { weather ->
             val weatherImagePath = "Field/$weather.png"
+            val weatherEffectDescriptionName = "{WEATHER} $weather"
             val weatherIv = ImageView(this).apply {
                 try { setImageBitmap(BitmapFactory.decodeStream(assets.open(weatherImagePath))) } catch (e: Exception) {}
                 layoutParams = LinearLayout.LayoutParams(100, 100)
-                setOnClickListener { showDetailPopup(weather, this, weatherImagePath) }
+                setOnClickListener { showDetailPopup(weatherEffectDescriptionName, this, weatherImagePath) }
             }
             fieldEffectsContainer.addView(weatherIv)
             val trashIv = ImageView(this).apply {
@@ -927,10 +928,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         enemyStatusContainer.removeAllViews()
         viewModel.enemyWeather.value?.let { weather ->
             val weatherImagePath = "Field/$weather.png"
+            val weatherEffectDescriptionName = "{WEATHER} $weather"
             val weatherIv = ImageView(this).apply {
                 layoutParams = LinearLayout.LayoutParams(80, 80).apply { bottomMargin = 8 }
                 try { setImageBitmap(BitmapFactory.decodeStream(assets.open(weatherImagePath))) } catch (e: Exception) {}
-                setOnClickListener { showDetailPopup(weather, this, weatherImagePath) }
+                setOnClickListener { showDetailPopup(weatherEffectDescriptionName, this, weatherImagePath) }
             }
             enemyStatusContainer.addView(weatherIv, 0)
         }
