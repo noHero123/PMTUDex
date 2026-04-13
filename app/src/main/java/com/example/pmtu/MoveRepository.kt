@@ -2,6 +2,7 @@ package com.example.pmtu
 
 import android.content.Context
 import android.util.Log
+import androidx.camera.view.impl.ZoomGestureDetector
 
 class MoveRepository(private val context: Context) {
     private val fullMoveDataCache = mutableMapOf<String, MoveData>()
@@ -121,6 +122,28 @@ class MoveRepository(private val context: Context) {
                (pType2 != "None" && cleanType.equals(pType2, ignoreCase = true))
     }
 
+    fun getBasePower(moveName: String, pokemon: PokemonInfo?, enemy: PokemonInfo?): Int {
+        val moveData = fetchMoveData(moveName) ?: return 0
+        val isStabSuffix = moveName.endsWith("(S)")
+        var powerStr = if (isStabSuffix) moveData.powerStab else moveData.powerStr
+        powerStr = powerStr?.replace("*", "") ?: "0"
+        var originalBasePower: Int
+        if (powerStr.equals("1-2 Lvl", ignoreCase = true)) {
+            if ((moveData.effect1 == "{W You}") || (moveData.effect2 == "{W You}")) {
+                if (pokemon == null) return 0
+                originalBasePower = (pokemon.base_level + pokemon.additionalLevel) / 2
+            } else {
+                if (enemy == null) return 0
+                originalBasePower = (enemy.base_level + enemy.additionalLevel) / 2
+            }
+
+        } else {
+            originalBasePower = powerStr.toIntOrNull() ?: 0
+
+        }
+        return originalBasePower
+    }
+
     fun calculateMovePower(
         moveName: String,
         pokemon: PokemonInfo,
@@ -128,42 +151,50 @@ class MoveRepository(private val context: Context) {
         ownWeather: String?,
         enemyWeather: String?
     ): PowerResult? {
-        val moveData = fetchMoveData(moveName) ?: return null
 
-        val isStabSuffix = moveName.endsWith("(S)")
-        var powerStr = if (isStabSuffix) moveData.powerStab else moveData.powerStr
-        powerStr = powerStr?.replace("*", "") ?: "0"
+        //Basepower is calculated with ORIGINAL move! not dynamaxed one
+        var originalBasePower = getBasePower(moveName, pokemon, enemy)
+
+        var moveData: MoveData
+        if (pokemon.isDynaActivated)
+        {
+            val newMoveName = getMaxMove(moveName, originalBasePower)
+            moveData = fetchMoveData(newMoveName) ?: return null
+        }else
+        {
+            moveData = fetchMoveData(moveName) ?: return null
+        }
+
         var cleanType = moveData.type?.replace("{", "")?.replace("}", "")?.trim() ?: ""
 
-        var powerval: Int
-        var originalBasePower: Int
-        if (powerStr.equals("1-2 Lvl", ignoreCase = true)) {
-            originalBasePower = (pokemon.base_level + pokemon.additionalLevel) / 2
-        } else {
-            originalBasePower = powerStr.toIntOrNull() ?: 0
-
+        if (pokemon.isDynaActivated)
+        {
+            cleanType =  getMaxMoveType(moveName, originalBasePower)
         }
+
+        var powerval: Int
+
 
         if(pokemon.hasTypelessMove()){
             originalBasePower = 0
             cleanType = "Typeless"
         }
+        powerval = originalBasePower
 
         if (pokemon.baseItem.equals("Alph", ignoreCase = true) && originalBasePower > 0 && originalBasePower < 4) {
             if (pokemon.isBaseItemActivated) {
-                originalBasePower += 2
-                if (originalBasePower > 4) originalBasePower = 4
+                powerval += 2
+                if (powerval > 4) powerval = 4
             }
         }
 
         if(pokemon.statusCondition.equals("Burn", ignoreCase = true))
         {
-            if(originalBasePower > 0) {
-                originalBasePower -= 1
+            if(powerval > 0) {
+                powerval -= 1
             }
         }
 
-        powerval = originalBasePower
         powerval += pokemon.base_level + pokemon.additionalLevel
 
 
@@ -172,8 +203,7 @@ class MoveRepository(private val context: Context) {
             powerval += 1
         }
 
-        val originalBasePowerCheck: Int = if (powerStr.equals("1-2 Lvl", ignoreCase = true)) 1 else powerStr.toIntOrNull() ?: 0
-        if (pokemon.typeEnhancerType?.equals(cleanType, ignoreCase = true) == true && originalBasePowerCheck >= 1) {
+        if (pokemon.typeEnhancerType?.equals(cleanType, ignoreCase = true) == true && originalBasePower >= 1) {
             powerval += 1
         }
 
@@ -254,6 +284,73 @@ class MoveRepository(private val context: Context) {
 
 
         return PowerResult(powerval, effectiveness, cleanType, moveData)
+    }
+
+    fun getMaxMove(moveName:String, power:Int): String
+    {
+        if (moveName == "")
+            return ""
+
+        val moveData = fetchMoveData(moveName) ?: return ""
+        if(power <= 0)
+        {
+            return "Guard"
+        }
+        var moveType = moveData.type ?: return ""
+        moveType = moveType.replace("{", "").replace("}", "").trim()
+
+        if (moveType == "Normal")
+            return "Strike"
+        if (moveType == "Fighting")
+            return "Knuckle"
+        if (moveType == "Flying")
+            return "Airstream"
+        if (moveType == "Poison")
+            return "Ooze"
+        if (moveType == "Ground")
+            return "Quake"
+        if (moveType == "Rock")
+            return "Rockfall"
+        if (moveType == "Bug")
+            return "Flutterby"
+        if (moveType == "Ghost")
+            return "Phantasm"
+        if (moveType == "Steel")
+            return "Steelspike"
+        if (moveType == "Fire")
+            return "Flare"
+        if (moveType == "Water")
+            return "Geyser"
+        if (moveType == "Grass")
+            return "Overgrowth"
+        if (moveType == "Electric")
+            return "Lightning"
+        if (moveType == "Psychic")
+            return "Mindstorm"
+        if (moveType == "Ice")
+            return "Hailstorm"
+        if (moveType == "Dragon")
+            return "Wyrmwind"
+        if (moveType == "Dark")
+            return "Darkness"
+        if (moveType == "Fairy")
+            return "Starfall"
+        return "Guard"
+    }
+
+    fun getMaxMoveType(moveName:String, power:Int): String
+    {
+        if (moveName == "")
+            return "Normal"
+
+        val moveData = fetchMoveData(moveName) ?: return "Normal"
+        if(power <= 0)
+        {
+            return "Normal"
+        }
+        var moveType = moveData.type ?: return "Normal"
+        moveType = moveType.replace("{", "").replace("}", "").trim()
+        return moveType
     }
 
     fun calculateMoveEffectiveness(moveType: String?, ignores: Boolean, defType1: String, defType2: String): Int {

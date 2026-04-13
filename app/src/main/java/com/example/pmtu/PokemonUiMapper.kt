@@ -112,8 +112,6 @@ class PokemonUiMapper(private val context: Context) {
             }
         }
 
-        //val wurfel = moveData.wurfel ?: ""
-        //val cleanWurfel = wurfel.replace(Regex("\\{.*?d[48]\\}"), "").trim()
         val startText = builder.length
         builder.append(finalMoveName ?: "").append(" ")//.append(cleanWurfel)
         val endText = builder.length
@@ -149,7 +147,11 @@ class PokemonUiMapper(private val context: Context) {
         var usedZoom = false
         var meff1 = moveData.effect1?.replace("{", "")?.replace("}", "")?.trim() ?: ""
         var meff2 = moveData.effect2?.replace("{", "")?.replace("}", "")?.trim() ?: ""
-
+        if (ownPokemon!!.isDynaActivated)
+        {
+            meff1 = getDynamaxEffect(moveData.englishName)
+            meff2 = ""
+        }
         val effs = arrayOf(meff1, meff2) // Initialization
         for (effi in effs)
         {
@@ -222,6 +224,46 @@ class PokemonUiMapper(private val context: Context) {
 
 
         return builder
+    }
+
+    private fun getDynamaxEffect(moveName:String):String
+    {
+        if (moveName == "Strike")
+            return "W Priority"
+        if (moveName == "Knuckle")
+            return "W Adv 1"
+        if (moveName == "Airstream")
+            return "W Priority"
+        if (moveName == "Ooze")
+            return "W Adv 1"
+        if (moveName == "Rockfall")
+            return "Sandstorm"
+        if (moveName == "Flutterby")
+            return "B Dis 1"
+        if (moveName == "Phantasm")
+            return "W Adv 1"
+        if (moveName == "Steelspike")
+            return "B Dis 1"
+        if (moveName == "Flare")
+            return "Sunny"
+        if (moveName == "Geyser")
+            return "Rain"
+        if (moveName == "Overgrowth")
+            return "Grassy Terrain"
+        if (moveName == "Lightning")
+            return "Electric Terrain"
+        if (moveName == "Mindstorm")
+            return "Psychic Terrain"
+        if (moveName == "Hailstorm")
+            return "Hail"
+        if (moveName == "Wyrmwind")
+            return "B Dis 1"
+        if (moveName == "Darkness")
+            return "W Adv 1"
+        if (moveName == "Starfall")
+            return "Misty Terrain"
+
+        return "W Prot 1"
     }
 
     private fun isAssetExists(pathInAssetsDir: String): Boolean {
@@ -304,6 +346,7 @@ class PokemonUiMapper(private val context: Context) {
         } else {
             pathsToTry.add("move_symbols/$cleanEffect.png")
         }
+        pathsToTry.add("Field/$cleanEffect.png")
         val path = context.filesDir.path
 
         for (path in pathsToTry) {

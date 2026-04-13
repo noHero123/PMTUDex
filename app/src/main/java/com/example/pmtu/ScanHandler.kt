@@ -159,9 +159,16 @@ class ScanHandler(
     }
 
     private fun handleBaseItemScan(scannedText: String) {
+        val itemName = scannedText.substring(2)
+        
+        if (itemName.equals("Dyna", ignoreCase = true)) {
+            viewModel.enableDynaForTeam()
+            return
+        }
+
         val own = viewModel.ownPokemon.value ?: return
         if (own.isTrainerPokemon) return
-        val itemName = scannedText.substring(2)
+
         clearOtherAttachments(own)
         own.baseItem = itemName
         

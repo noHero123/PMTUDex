@@ -47,7 +47,7 @@
 "W KO", "K.O. (Self)", "User faints at the end of the round."
 "W Switch", "SWITCHOUT (SELF)", "After applying the opponents move effects, the user is switched out of battle with another from its team, but the switched in Pokémon uses this move for this battle round. This effect does not apply to wild or Gym Leader Pokémon."
 "W Conf","CONFUSION (SELF)", "User gains the Confused status."
-"W PRIORITY","PRIORITY", "Any effects used by the opponent’s Pokémon that target the user are ignored until the end of the round. No effect if the opponent has Protection."
+"W Priority","PRIORITY", "Any effects used by the opponent’s Pokémon that target the user are ignored until the end of the round. No effect if the opponent has Protection."
 "W StatDown","STAT DOWN", "Beginning next battle round, user gains Disadvantage until the end of the battle (or until switched out)."
 "W Ignore","IGNORE TYPE", "Do not apply any type effectiveness bonuses/penalties to this move."
 "W Recharge","RECHARGE", "Once used, the user cannot select this move for the rest of the battle or until the user is switched out."

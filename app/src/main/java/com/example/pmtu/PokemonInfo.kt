@@ -26,7 +26,9 @@ data class PokemonInfo(
     var baseItem: String? = null,
     var isBaseItemActivated: Boolean = false,
     var isTrainerPokemon: Boolean = false,
-    var statusCondition: String? = null
+    var statusCondition: String? = null,
+    var isDynaAvailable: Boolean = false,
+    var isDynaActivated: Boolean = false
 ):Parcelable {
     @Transient
     @IgnoredOnParcel

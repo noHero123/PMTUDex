@@ -635,7 +635,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         else{
             addMoveRow(own.move1)
             addMoveRow(own.move2)
-            own.move3?.let { addMoveRow(it, true) }
+            own.move3?.let {
+                addMoveRow(it, true)
+            }
         }
         own.teraType?.let { addTeraRow(own) }
         own.typeEnhancerType?.let { addTypeEnhancerRow(own) }
@@ -656,25 +658,30 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
 
         // Speaker
+        val result = moveRepository.calculateMovePower(
+            moveName,
+            viewModel.ownPokemon.value!!,
+            viewModel.enemyPokemon.value,
+            viewModel.ownWeather.value,
+            viewModel.enemyWeather.value) ?: return
         if (!prefs.getBoolean("disable_speakers", false)) {
             val speakerIv = ImageView(this).apply {
                 try { setImageBitmap(BitmapFactory.decodeStream(assets.open("speaker.png"))) } catch (e: Exception) {}
                 layoutParams = LinearLayout.LayoutParams(100, 100).apply { rightMargin = 16 }
                 setPadding(8, 8, 8, 8)
                 setOnClickListener {
-                    val result = moveRepository.calculateMovePower(moveName, viewModel.ownPokemon.value!!, viewModel.enemyPokemon.value, viewModel.ownWeather.value, viewModel.enemyWeather.value)
                     val lang = prefs.getString("language", "en") ?: "en"
                     if (lang == "en") {
-                        speakOut(result?.moveData?.englishName ?: "Unknown move")
+                        speakOut(result.moveData.englishName ?: "Unknown move")
                     }
                     if (lang == "de")
-                        speakOut(result?.moveData?.germanName ?: "Unbekannter Zug")
+                        speakOut(result.moveData.germanName ?: "Unbekannte Attacke")
                 }
             }
             row.addView(speakerIv)
         }
 
-        val result = moveRepository.calculateMovePower(moveName, viewModel.ownPokemon.value!!, viewModel.enemyPokemon.value, viewModel.ownWeather.value, viewModel.enemyWeather.value) ?: return
+
         
         // Die
         result.moveData.wurfel?.let { w ->
@@ -709,10 +716,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             showDetailPopup(effectName, view, path) // Your popup function
         }
 
-        /*val moveTv = TextView(this).apply {
-            text = uiMapper.formatMoveText(result, this, prefs.getString("language", "en") ?: "en", viewModel.ownPokemon.value,viewModel.enemyPokemon.value, viewModel.ownWeather.value, viewModel.enemyWeather.value, pokedexRepository)
-            textSize = 20f
-        }*/
         row.addView(moveTextView)
 
         // Arrow
@@ -848,12 +851,40 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 diceContainer.addView(diceIv)
             }
         } else {
+            val wrapper = FrameLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+
             val diceIv = ImageView(this).apply {
                 try { setImageBitmap(BitmapFactory.decodeStream(assets.open("blued6_$level.png"))) } catch (e: Exception) {}
-                layoutParams = LinearLayout.LayoutParams(150, 150)
+                layoutParams = FrameLayout.LayoutParams(150, 150).apply { gravity = Gravity.CENTER }
                 setOnClickListener { showDice(true) }
             }
-            diceContainer.addView(diceIv)
+            wrapper.addView(diceIv)
+
+            if (own.isDynaAvailable) {
+                val dynaIv = ImageView(this).apply {
+                    try { 
+                        val bit = BitmapFactory.decodeStream(assets.open("G-Max Ball.png"))
+                        setImageBitmap(bit)
+                    } catch (e: Exception) {}
+                    layoutParams = FrameLayout.LayoutParams(120, 120).apply {
+                        gravity = Gravity.CENTER_VERTICAL or Gravity.END
+                        rightMargin = 64
+                    }
+                    if (!own.isDynaActivated) {
+                        colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) })
+                    }
+                    setOnClickListener {
+                        own.isDynaActivated = !own.isDynaActivated
+                        viewModel.saveTeamData()
+                        viewModel.setUpdateUI()
+                        syncViaHttp()
+                    }
+                }
+                wrapper.addView(dynaIv)
+            }
+            diceContainer.addView(wrapper)
         }
     }
 

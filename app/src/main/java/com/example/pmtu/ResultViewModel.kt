@@ -203,6 +203,16 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
         lastSelectedIndex = null
         lastPokemonId = ""
     }
+
+    fun enableDynaForTeam() {
+        val team = _teamPokemon.value.copyOf()
+        team.forEach { it?.isDynaAvailable = true }
+        _teamPokemon.value = team
+        _ownPokemon.value?.isDynaAvailable = true
+        saveTeamData()
+        setUpdateUI()
+    }
+
     private fun bitmapToBase64(bitmap: Bitmap): String {
         val outputStream = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
