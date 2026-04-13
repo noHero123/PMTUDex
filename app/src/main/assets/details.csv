@@ -79,8 +79,37 @@
 "B Para","PARALYZE","Opponent gains the Paralyzed status."
 "B Opp","1/2 LEVEL (OPPONENT)","The Attack Strength of this move is equal to half the level of the oppponent (rounded down)."
 
-#### Moves
-"Rest","Rest","After the battle round, user discards any attached status and gains the Sleep status with a counter of 2."
-#### MAX Moves
+#### G-MAX/MAX Moves
+"{MAX} Strike","STRIKE","User gains Priority while Dynamaxed/Gigantamaxed."
+"{MAX} Knuckle","KNUCKLE","User gains Advantage while Dynamaxed/Gigantamaxed."
+"{MAX} Airstream","AIRSTREAM","User gains Priority while Dynamaxed/Gigantamaxed."
+"{MAX} Ooze","OOZE","User gains Advantage while Dynamaxed/Gigantamaxed."
+"{MAX} Quake","QUAKE","Opponent Pokémon has Disadvantage for the rest of the battle or until switched out."
+"{MAX} Rockfall","ROCKFALL","Play the Sandstorm Field Move card."
+"{MAX} Flutterby","FLUTTERBY","Opponent Pokémon has Disadvantage for the rest of the battle or until switched out."
+"{MAX} Phantasm","PHANTASM","User gains Advantage while Dynamaxed/Gigantamaxed."
 "{MAX} Steelspike","Steelspike","Opponent Pokémon has Disadvantage for the rest of the battle or until switched out."
+"{MAX} Flare","FLARE","Play the Harsh Sunlight Field Move card."
+"{MAX} Geyser","GEYSER","Play the Rain Field Move card."
+"{MAX} Overgrowth","OVERGROWTH","Play the Grassy Terrain Field Move card."
+"{MAX} Lightning","LIGHTNING","Play the Electric Terrain Field Move card."
+"{MAX} Mindstorm","MINDSTORM","Play the Psychic Terrain Field Move card."
+"{MAX} Hailstorm","HAILSTORM","Play the Hail Field Move card."
+"{MAX} Wyrmwind","WYRMWIND","Opponent Pokémon has Disadvantage for the rest of the battle or until switched out."
+"{MAX} Darkness","DARKNESS","User gains Advantage while Dynamaxed/Gigantamaxed."
+"{MAX} Starfall","STARFALL","Play the Misty Terrain Field Move card."
+"{MAX} Guard","GUARD","User gains Protection - This battle round, the Attack Strength of the opponents move becomes 0 and all move effects that target the user are ignored."
+
+"{G-MAX} Befunddle", "BEFUDDLE", "Roll the effect die: 1-2: Opponent gains the Poisoned status. 3-4: Opponent gains the Paralyzed status. 5-6: Opponent gains the Sleep status."
 "{G-MAX} Depletion", "Depletion", "The move used by the opponent Pokémon this round gains Recharge (This effect can only be applied to one of the opponent Pokémon moves)."
+"{G-MAX Gold Rush} ", "GOLD RUSH", "User draws an item or collects 4 PokéCoins at the end of the battle. This effect does not stack."
+"{G-MAX} Gravitas", "GRAVITAS", "Flying-type Pokémon do not resist Ground-type moves for the remainder of the battle."
+"{G-MAX} Meltdown", "MELTDOWN", "The opponent Pokémon cannot use the same move in consecutive rounds for the rest of the battle."
+"{G-MAX} One Blow", "ONE BLOW", "Ignore the effects of Protection on your opponents moves for this battle round."
+"{G-MAX} Rapid Flow", "RAPID FLOW", "Ignore the effects of Protection on your opponents moves for this battle round."
+"{G-MAX} Replenish", "REPLENISH", "User takes an attach item of choice from the discard and adds it to their hand (This effect can only be used once per battle)."
+"{G-MAX} Stun Shock", "STUN SHOCK", "Roll the effect die: 1-3: Opponent gains the Poisoned status. 4-6: Opponent gains the Paralyzed status."
+"{G-MAX} Wind Rage", "WIND RAGE", "Discard all Field Move cards in play. No more Field Move cards can be played for the rest of this battle."
+
+#### Normal Moves
+"Rest","Rest","After the battle round, user discards any attached status and gains the Sleep status with a counter of 2."
