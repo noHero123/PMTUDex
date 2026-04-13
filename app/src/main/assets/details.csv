@@ -112,4 +112,101 @@
 "{G-MAX} Wind Rage", "WIND RAGE", "Discard all Field Move cards in play. No more Field Move cards can be played for the rest of this battle."
 
 #### Normal Moves
-"Rest","Rest","After the battle round, user discards any attached status and gains the Sleep status with a counter of 2."
+"Aura Wheel", "Aura Wheel", "If Morpeko uses this move, it must change to it’s alternate form at the end of this battle round."
+"Acrobatics", "Acrobatics", "Increase the Attack Strength of this move by 1 if the user does not have an Attach Item equipped."
+
+"Behemoth Bash", "Behemoth Bash", "Add 1 to the Attack Strength of this move if the opponent is Dynamaxed/Gigantamaxed."
+"Behemoth Blade", "Behemoth Blade", "Add 1 to the Attack Strength of this move if the opponent is Dynamaxed/Gigantamaxed."
+"Beat Up", "Beat Up", "The Attack Strength of this move is equal to the number of non-fainted Pokémon in the users party (not including the user and not to exceed 4). If used by a wild or non-player Pokémon, the Attack Strength of this move is 2."
+"Brick Break", "Brick Break", "User is immune to opponent move effects that cause Disadvantage."
+"Burning Jealousy", "Burning Jealousy", "If the opponent receives Advantage this round, they immediately gain the Burned status."
+
+"Camouflage", "Camouflage", "Roll the Type Die (or select a type at random) to determine the type of this move for the round."
+"Conversion", "Conversion", "Select one of the opponent Pokémons moves. The type of your Pokémon becomes that type until the end of the battle."
+"Conversion 2", "Conversion 2", "Select one of the opponent Pokémons moves. The type of your Pokémon becomes a type of your choice that resists that type until the end of the battle."
+"Covet", "Covet", "Steals the opponents Attach Card until the end of the battle, meaning you can use it and they cannot. If the user already has an Attach Card, it is replaced by the most recently stolen Attach Card. At the end of the battle, return all Attach Cards to their original owner."
+
+"Dark Void", "Dark Void", "If the opponent has the Sleep status, this move gains 2 Attack Strength. Otherwise, the Attack Strength of this move is 0."
+"Dire Claw", "Dire Claw", "Roll the Effect Die again. If the result is Odd, the opponent gains the Poisoned status. If it is Even, the opponent gains the Paralyzed status."
+"Disable", "Disable", "Select one of the opponent Pokémons moves. They cannot use that move for the rest of the battle. If the opponent only has 1 available move, this move has no effect. This effect takes place before the opponent selects a move."
+"Dream Eater", "Dream Eater", "If the opponent has the Sleep status, this move has 1 Attack Strength and the Life Recovery effect. Otherwise, the Attack Strength of this move is 0."
+"Dynamax Cannon", "Dynamax Cannon", "Add 1 to the Attack Strength of this move if the opponent is Dynamaxed/Gigantamaxed."
+
+"Encore", "Encore", "For the rest of the battle, opponent Pokémon can only select the move they selected this battle round."
+
+"Facade", "Facade", "This move gains 1 Attack Strength if the user has a status condition."
+"Fake Out", "Fake Out", "The opponent has Disadvantage for this round if this move is used on the user’s first round in battle."
+"False Swipe", "False Swipe", "Add 1 to your Catch Roll if you defeated a wild Pokémon using this move."
+"Fell Stinger", "Fell Stinger", "If the user wins this battle round, they gain Double Advantage in the next battle round of this battle."
+"Fire Fang", "Fire Fang", "Roll the Effect Die again. If the result is Odd, the opponent gains the Burned status. If it is Even, the opponent has Disadvantage this battle round."
+"Fire Pledge", "Fire Pledge", "Double the Attack Strength of this move if this team has used Grass Pledge or Water Pledge this battle."
+"Flying Press", "Flying Press", "User may treat this attack as Flying-type instead of Fighting-type."
+
+"Grass Pledge", "Grass Pledge", "Double the Attack Strength of this move if this team has used Fire Pledge or Water Pledge this battle."
+
+"Haze", "Haze", "Any move effects used by the opponent Pokémon that affects itself are ignored."
+"Heal Block", "Heal Block", "Ignore all Life Recovery, Status Heal, and Revival effects that benefit the opponent for the rest of the battle."
+"Hidden Power", "Hidden Power", "The first time this move is used, roll the Type Die (or select type at random). This move becomes that type for the rest of the game."
+"Hydro Steam", "Hydro Steam", "If the Harsh Sunlight field move card is in play, this move receives +1 Attack Strength instead of -1."
+
+"Ice Fang", "Ice Fang", "Roll the Effect Die again. If the result is Odd, the opponent gains the Frozen status. If it is Even, the opponent has Disadvantage this battle round."
+
+"Judgement", "Judgement", "The type of this move is the same as the Type Booster card equipped to this Pokémon. If none are attached, you may roll the Type Die to set the attack type or choose Normal type."
+"Lash Out", "Lash Out", "If the user receives Disadvantage this round, increase the Attack Strength of this move by 1."
+"Last Respects", "Last Respects", "The Attack Strength of this move is equal to the number of fainted Pokémon in the users party. If used by a wild Pokémon or non-player, or the user has no fainted Pokémon, the Attack Strength is 2."
+
+"Magic Coat", "Magic Coat", "If the opponent Pokémons chosen move effect(s) target user, target them with the same effect(s). This does not prevent the effect from affecting user."
+"Make It Rain", "Make It Rain", "User draws a card from the Item Deck or collects 3 PokéCoins at the end of the battle (Ignore this effect if this user is not owned by a player) This effect only applies once per battle."
+"Metronome", "Metronome", "Draw a Pokémon token matching the color of this token (or the listed color). This Pokémon uses the first move on that token. The drawn token is then returned."
+"Mighty Cleave", "Mighty Cleave", "If the opponent uses a move with Protection, ignore the Protection effect and their Attack Strength is 0."
+"Mimic", "Mimic", "Mimic becomes the move that was used by the opponent Pokémon in the previous battle round for the rest of this battle (if no moved was used or this is the first round, this move has 0 Attack Strength)."
+"Multi-Attack", "Multi-Attack", "Roll the Type Die (or select a type at random). This move becomes that type for the rest of this battle."
+
+"Nature Power", "Nature Power", "Roll the Nature Power die. This move becomes that move for this battle round."
+"Nihil Light", "Nihil Light", "Ignore type effectiveness of this move when used against Fairy-type Pokémon."
+"No Retreat", "No Retreat", "User cannot be switched out for the rest of the battle."
+
+"Octolock", "Octolock", "The opponent Pokémon has Disadvantage for the rest of the battle."
+"Odor Sleuth", "Odor Sleuth", "User ignores both Disadvantage caused by and type effectiveness against Ghost-type Pokémon for the rest of the battle."
+"Order Up", "Order Up", "Increase the Attack Strength of this move by 2 if Tatsugiri is in the users party."
+
+"Pay Day", "Pay Day", "User draws a card from the Item Deck or collects 3 PokéCoins at the end of the battle (Ignore this effect if this user is not owned by a player) This effect only applies once per battle."
+"Payback", "Payback", "This moves Attack Strength is increased by 1 if the opponent uses a Battle Card or makes use of their Attach Card."
+"Perish Song", "Perish Song", "User gains the Cursed Status."
+"Plasma Fists", "Plasma Fists", "All Normal-type moves become Electric-type for this battle."
+"Poltergeist", "Poltergeist", "If the opponent has an Attach Card, the Attack Strength of this move is 3. If they do not have an Attach Card, the Attack Strength of this move is 0."
+"Psyblade", "Psyblade", "If the Electric Terrain field move card is in play, this move receives +1 Attack Strength"
+"Psychic Fangs", "Psychic Fangs", "User is immune to opponent move effects that cause Disadvantage."
+"Psycho Shift", "Psycho Shift", "Take a Status Condition from a Pokémon on your team and attach it to the opponent Pokémon."
+
+"Retaliate", "Retaliate", "Increase the Attack Strength of this attack by 1 if any Pokémon on the users team have fainted in this battle."
+"Rest", "Rest", "After the battle round, user discards any attached status and gains the Sleep status with a counter of 2."
+
+"Salt Cure", "Salt Cure", "This move is considered Effective against Steel and Water types."
+"Secret Power", "Secret Power", "Roll the Effect Die again: 1 = Opponent gains the Paralyzed status. 2 = Opponent gains Disadvantage this battle round. 3 = Opponent gains the Confused status. 4 = Opponent gains the Poisoned status. 5 = Opponent gains the Sleep status. 6 = User gains Advantage this battle round."
+"Sketch", "Sketch", "Select one of the opponent Pokémons moves. This move becomes that move until the end of the game."
+"Sleep Talk", "Sleep Talk", "Randomly select one of this Pokémons other moves to use this round. This move can only be selected if the user has the Sleep status, otherwise it has no effect."
+"Smelling Salts", "Smelling Salts", "After this round, the opponent discards their Status Condition (if applicable)."
+"Snatch", "Snatch", "If the opponent Pokémons chosen move would give it Advantage, the user gains Advantage instead of the opponent."
+"Snore", "Snore", "This move can be selected even if the user has the Sleep status."
+"Spectral Thief", "Spectral Thief", "If the opponent Pokémons chosen move would give it Advantage/Double Advantage, user gains the same respective effect this round. If the opponent Pokémons chosen move would give user Disadvantage/Double Disadvantage, the opponent Pokémon receives the same respective effect this round."
+"Spit Up", "Spit Up", "Roll a D4. The Attack Strength of this move is equal to the result. If the user of this move does not have an Attach Card, the Attack Strength of this move is 0. The user of this move cannot make use of their attach card for the remainder of this battle."
+"Steel Roller", "Steel Roller", "If there was no Field Move Card in play at the beginning of this battle round, the attack strength of this move is 2. If there was a Field Move Card in play, then the attack strength is 4."
+"Switcheroo", "Switcheroo", "Switch users Attach Card with the opponent Attach Card for the rest of the battle. Return Attach Cards to their original owners at the end of the battle."
+
+"Taunt", "Taunt", "If possible, the opponent Pokémon cannot select a move with an Attack Strength of 0 until the end of this battle. This effect takes place before the opponent selects a move."
+"Techno Blast", "Techno Blast", "Roll the Effect Die again: 1-2: The type of this move is Normal-type 3: The type of this move is Fire-type 4: The type of this move is Ice-type 5: The type of this move is Water-type 6: The type of this move is Electric-type"
+"Tera Blast", "Tera Blast", "The type of this move is the same type as the user."
+"Tera Starstorm", "Tera Starstorm", "Add 2 to the Attack Strength of this move for the battle round if the opponent is Terrastalized."
+"Terrain Pulse", "Terrain Pulse", "The type of this move depends on the following: No Field Move card in play = Normal-type. Grassy Terrain in play = Grass-type. Electric Terrain in play = Electric-type. Misty Terrain in play = Fairy-type. Psychic Terrain in play = Psychic-type"
+"Thief", "Thief", "Steals the opponents Attach Card until the end of the battle, meaning you can use it and they cannot. If the user already has an Attach Card, it is replaced by the most recently stolen Attach Card. At the end of the battle, return all Attach Cards to their original owner."
+"Thunder Fang", "Thunder Fang", "Roll the Effect Die again. If the result is Odd, the opponent gains the Paralyzed status. If it is Even, the opponent has Disadvantage this battle round."
+"Torment", "Torment", "Opponent Pokémon cannot choose the same move in consecutive rounds until the end of the battle."
+"Transform", "Transform", "Select any of the opponent Pokémons moves. This move becomes that move and the type the user becomes that type for the rest of this battle."
+"Tri Attack", "Tri Attack", "Roll the Effect Die again: 1-2: Opponent gains the Paralyzed status. 3-4: Opponent gains the Burned status. 5-6: Opponent gains the Frozen status."
+"Trick", "Trick", "Switch users Attach Card with the opponent Attach Card for the rest of the battle. Return Attach Cards to their original owners at the end of the battle."
+
+"Uproar", "Uproar", "Discard the Sleep status from all Pokémon on both teams. No Pokémon can gain the Sleep status this battle."
+"Wake-Up Slap", "Wake-Up Slap", "After this round, the opponent discards their Sleep Status Condition (if applicable)."
+"Water Pledge", "Water Pledge", "Double the Attack Strength of this move if this team has used Fire Pledge or Grass Pledge this battle."
+"Yawn", "Yawn", "Opponent Pokémon gains the Sleep status at the beginning of the next battle round."
