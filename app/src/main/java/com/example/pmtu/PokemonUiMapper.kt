@@ -147,12 +147,28 @@ class PokemonUiMapper(private val context: Context) {
         var usedZoom = false
         var meff1 = moveData.effect1?.replace("{", "")?.replace("}", "")?.trim() ?: ""
         var meff2 = moveData.effect2?.replace("{", "")?.replace("}", "")?.trim() ?: ""
+        val effs = mutableListOf(meff1, meff2) // Initialization
         if (ownPokemon!!.isDynaActivated)
         {
-            meff1 = getDynamaxEffect(moveData.englishName)
-            meff2 = ""
+            effs.clear()
+            effs.add(getDynamaxEffect(moveData.englishName))
         }
-        val effs = arrayOf(meff1, meff2) // Initialization
+        if (ownPokemon!!.isGigaDynaActivated || ownPokemon.name.contains("Gigantamax"))
+        {
+            effs.clear()
+            val geff = getDynamaxEffect(moveData.englishName)
+            val geff2 = getGigaDynamaxEffect(moveData.englishName)
+            if(geff != ""){
+                effs.add(geff)
+            }
+            //gmax effects
+            for(e in geff2)
+            {
+                effs.add(e)
+            }
+        }
+
+        effs.add("")
         for (effi in effs)
         {
             if(effi == "")
@@ -262,9 +278,33 @@ class PokemonUiMapper(private val context: Context) {
             return "W Adv 1"
         if (moveName == "Starfall")
             return "Misty Terrain"
-
-        return "W Prot 1"
+        if (moveName == "Guard")
+            return "W Prot 1"
+        return ""
     }
+
+    private fun getGigaDynamaxEffect(moveName:String):List<String>
+    {
+        var effects = mutableListOf<String>()
+        if (moveName.equals("BEFUDDLE", ignoreCase = true)){
+            effects.add("B Pois 2")
+            effects.add("B Para 4")
+            effects.add("B Sleep 6")
+        }
+        if (moveName.equals("DEPLETION", ignoreCase = true)){
+            effects.add("W Recharge")
+        }
+        if (moveName.equals("STUN SHOCK", ignoreCase = true)){
+            effects.add("B Pois 3")
+            effects.add("B Para 6")
+        }
+        if (moveName.equals("WIND RAGE", ignoreCase = true)){
+            effects.add("Clear")
+        }
+
+        return effects
+    }
+
 
     private fun isAssetExists(pathInAssetsDir: String): Boolean {
 
@@ -329,6 +369,8 @@ class PokemonUiMapper(private val context: Context) {
         mappedName = mappedName.replace("Sleep", "Sleep")
         mappedName = mappedName.replace("Boost", "Condition Boost")
 
+        mappedName = mappedName.replace("Clear", "Field Clear")
+
         if (mappedName.contains( "AdvDis"))
         {
             mappedName = "AdvDis 6"
@@ -347,6 +389,7 @@ class PokemonUiMapper(private val context: Context) {
             pathsToTry.add("move_symbols/$cleanEffect.png")
         }
         pathsToTry.add("Field/$cleanEffect.png")
+        pathsToTry.add("Field/$mappedName.png")
         val path = context.filesDir.path
 
         for (path in pathsToTry) {
