@@ -136,10 +136,10 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         rootLayout.addView(immunityCheckbox)
 
         val speakerCheckbox = CheckBox(this).apply {
-            text = "Disable Speaker Symbols at Attacks"
-            isChecked = prefs.getBoolean("disable_speakers", false)
+            text = "Show Speaker Symbols at Attacks"
+            isChecked = prefs.getBoolean("show_speakers", false)
             setOnCheckedChangeListener { _, isChecked ->
-                prefs.edit().putBoolean("disable_speakers", isChecked).apply()
+                prefs.edit().putBoolean("show_speakers", isChecked).apply()
             }
         }
         rootLayout.addView(speakerCheckbox)

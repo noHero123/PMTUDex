@@ -744,7 +744,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             viewModel.enemyPokemon.value,
             viewModel.ownWeather.value,
             viewModel.enemyWeather.value) ?: return
-        if (!prefs.getBoolean("disable_speakers", false)) {
+        if (prefs.getBoolean("show_speakers", false)) {
             val speakerIv = ImageView(this).apply {
                 try { setImageBitmap(BitmapFactory.decodeStream(assets.open("speaker.png"))) } catch (e: Exception) {}
                 layoutParams = LinearLayout.LayoutParams(100, 100).apply { rightMargin = 16 }
