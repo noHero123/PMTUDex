@@ -360,9 +360,12 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
-        ViewCompat.setOnApplyWindowInsetsListener(teamContainer) { view, windowInsets ->
-            val insets = windowInsets.getInsets( WindowInsetsCompat.Type.displayCutout())
-            view.updateLayoutParams<LinearLayout.LayoutParams> { topMargin = insets.top }
+        ViewCompat.setOnApplyWindowInsetsListener(teamContainer) { view, windowInsets ->            // Use systemBars to account for both the status bar and the notch
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.updateLayoutParams<LinearLayout.LayoutParams> {
+                // Subtract the offset from the top inset, but don't go below 0
+                topMargin = (insets.top+32).coerceAtLeast(0)
+            }
             windowInsets
         }
         mainContainer.addView(teamContainer)
