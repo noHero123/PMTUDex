@@ -287,7 +287,10 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
             qrImageView.setImageBitmap(bitmap)
             qrImageView.visibility = View.VISIBLE
         }
-        Toast.makeText(this, "Server started. Scan the QR code with the other device.", Toast.LENGTH_LONG).show()
+        val toast = Toast.makeText(this, "Server started. Scan the QR code with the other device.", Toast.LENGTH_LONG)
+        toast.setGravity(Gravity.TOP, 0, 0)
+        toast.show()
+
     }
 
     private fun stopScanner() {

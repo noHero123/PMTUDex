@@ -15,6 +15,11 @@ object HttpSyncService {
 
     var isServer = false
     var onDataReceived: ((String) -> Unit)? = null
+
+    var lastConnectedIp: String? = null
+        private set
+    var isServerEnabledByUser: Boolean = false
+        private set
     
     private val statusListeners = mutableSetOf<(Status, String?) -> Unit>()
 
@@ -71,6 +76,7 @@ object HttpSyncService {
 
     fun startServer() {
         isServer = true
+        isServerEnabledByUser = true
         stopAll()
         connectionStatus = Status.LISTENING
         statusMessage = "Waiting for connection..."
@@ -96,6 +102,7 @@ object HttpSyncService {
     }
 
     fun startClient(ip: String) {
+        lastConnectedIp = ip
         isServer = false
         stopAll()
         connectionStatus = Status.CONNECTING
@@ -150,6 +157,7 @@ object HttpSyncService {
 
     fun stopAll() {
         serviceScope.coroutineContext.cancelChildren()
+        isServerEnabledByUser = false
         try {
             serverSocket?.close()
             clientSocket?.close()

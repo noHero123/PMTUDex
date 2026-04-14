@@ -102,7 +102,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private val statusListener = { status: HttpSyncService.Status, _: String? ->
         if (status == HttpSyncService.Status.CONNECTED) {
-            syncViaHttp()
+            // When coming from background, this will trigger
+            // as soon as the socket handshake is successful
+            lifecycleScope.launch {
+                syncViaHttp()
+            }
         }
     }
 
@@ -132,6 +136,29 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 viewModel.setUpdateUI()
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        // 1. Re-hide system bars (sometimes they reappear after backgrounding)
+        setupWindow()
+
+        // 2. Check and restore connection
+        if (HttpSyncService.connectionStatus == HttpSyncService.Status.DISCONNECTED && HttpSyncService.isServerEnabledByUser) {
+            if (HttpSyncService.isServer) {
+                // Re-open server port
+                HttpSyncService.startServer()
+            } else {
+                // Try to reconnect to the last known master IP
+                HttpSyncService.lastConnectedIp?.let { ip ->
+                    HttpSyncService.startClient(ip)
+                }
+            }
+        }
+
+        // 3. Force a UI refresh and sync to ensure data is up to date
+        viewModel.setUpdateUI()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -334,8 +361,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
         ViewCompat.setOnApplyWindowInsetsListener(teamContainer) { view, windowInsets ->
-            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            view.updateLayoutParams<LinearLayout.LayoutParams> { topMargin = insets.top + 8 }
+            val insets = windowInsets.getInsets( WindowInsetsCompat.Type.displayCutout())
+            view.updateLayoutParams<LinearLayout.LayoutParams> { topMargin = insets.top }
             windowInsets
         }
         mainContainer.addView(teamContainer)
@@ -1149,9 +1176,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun updateEvolutionViews() {
-        //evolutionsContainer.removeAllViews()
-        //preEvolutionsContainer.removeAllViews()
-        val own = viewModel.ownPokemon.value ?: return
+        val own = viewModel.ownPokemon.value
+        if(own == null)
+        {
+        evolutionsContainer.removeAllViews()
+        preEvolutionsContainer.removeAllViews()
+        return
+        }
         if (own.isTrainerPokemon) return
         lifecycleScope.launch(Dispatchers.IO) {
             val (evos, preEvos) = pokedexRepository.getEvolutions(own.id)
