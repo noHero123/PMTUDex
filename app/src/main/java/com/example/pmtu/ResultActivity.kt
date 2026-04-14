@@ -377,6 +377,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         mainContainer.addView(buttonWrapper)
 
+        // ADDED: Small space between add button and dice
+        mainContainer.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(1, 64)
+        })
+
         // Center
         val centerContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -389,33 +394,54 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = 16 }
         }
-        centerContainer.addView(diceContainer)
+        //centerContainer.addView(diceContainer)
+        mainContainer.addView(diceContainer)
 
+        // 1. Change imageEvoLayout to only contain the central image
         val imageEvoLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 600)
         }
-        preEvolutionsContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f)
-        }
-        imageEvoLayout.addView(preEvolutionsContainer)
 
         imageView = ImageView(this).apply {
             setImageResource(android.R.drawable.ic_menu_camera)
             layoutParams = LinearLayout.LayoutParams(600, 600)
+            scaleType = ImageView.ScaleType.FIT_CENTER
         }
         imageEvoLayout.addView(imageView)
+        //centerContainer.addView(imageEvoLayout)
+        mainContainer.addView(imageEvoLayout)
+
+// 2. Define the side containers but DON'T add them to centerContainer
+// Instead, we set them up to be added to the rootLayout (the FrameLayout)
+        preEvolutionsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                marginStart = 50
+            }
+        }
 
         evolutionsContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f)
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                marginEnd = 50
+            }
         }
-        imageEvoLayout.addView(evolutionsContainer)
-        centerContainer.addView(imageEvoLayout)
+
+// 3. Add them to the rootLayout so they float independently of the vertical list
+        rootLayout.addView(preEvolutionsContainer)
+        rootLayout.addView(evolutionsContainer)
 
         // 1. Create the Row Container
         val pokedexRow = LinearLayout(this).apply {
@@ -465,14 +491,16 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         pokedexRow.addView(fieldEffectsContainer)
 
-        centerContainer.addView(pokedexRow)
+        //centerContainer.addView(pokedexRow)
+        mainContainer.addView(pokedexRow)
 
         movesLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
-        centerContainer.addView(movesLayout)
+        //centerContainer.addView(movesLayout)
+        mainContainer.addView(movesLayout)
 
         textView = TextView(this).apply {
             textSize = 20f
