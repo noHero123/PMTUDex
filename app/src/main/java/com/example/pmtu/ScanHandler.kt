@@ -22,6 +22,11 @@ class ScanHandler(
         object Unknown : ScanResult()
     }
 
+    fun getToggleAbleItems():Array<String>
+    {
+        return arrayOf("Dyna","Left","Quic","Wide","Mega")
+    }
+
     fun handleScan(scannedText: String, lifecycleOwner: LifecycleOwner): ScanResult {
         if (scannedText.startsWith("pmtu_connect", ignoreCase = true)) {
             val ip = scannedText.substring("pmtu_connect".length)
@@ -162,7 +167,7 @@ class ScanHandler(
         val itemName = scannedText.substring(2)
         
         if (itemName.equals("Dyna", ignoreCase = true)) {
-            viewModel.enableDynaForTeam()
+            viewModel.enableDynaForCurrent()
             return
         }
 
@@ -173,7 +178,7 @@ class ScanHandler(
         own.baseItem = itemName
         
         // Deactivate by default if it's one of the toggleable items
-        val toggleableItems = listOf("Evio", "Left", "Quic", "Wide")
+        val toggleableItems = getToggleAbleItems()
         if (toggleableItems.any { it.equals(itemName, ignoreCase = true) }) {
             own.isBaseItemActivated = false
         } else {

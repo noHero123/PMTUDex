@@ -17,22 +17,38 @@ data class PokemonInfo(
     val artUrl: String,
     @IgnoredOnParcel
     var spriteBase64: String? = null,
-    var additionalLevel: Int = 0,
     var nextPokedexIndex: Int = 0,
+    var isTrainerPokemon: Boolean = false,
+    // values not based on pokemon id
+    var additionalLevel: Int = 0,
     var move3: String? = null,
     var teraType: String? = null,
     var isTeraActivated: Boolean = false,
     var typeEnhancerType: String? = null,
     var baseItem: String? = null,
     var isBaseItemActivated: Boolean = false,
-    var isTrainerPokemon: Boolean = false,
     var statusCondition: String? = null,
     var isDynaAvailable: Boolean = false,
-    var isDynaActivated: Boolean = false
+    var isDynaActivated: Boolean = false,
+    var isGigaDynaActivated: Boolean = false
 ):Parcelable {
     @Transient
     @IgnoredOnParcel
     var spriteBitmap: Bitmap? = null
+
+    fun copyStateFrom(other: PokemonInfo) {
+        this.additionalLevel = other.additionalLevel
+        this.move3= other.move3
+        this.teraType= other.teraType
+        this.isTeraActivated= other.isTeraActivated
+        this.typeEnhancerType= other.typeEnhancerType
+        this.baseItem= other.baseItem
+        this.isBaseItemActivated= other.isBaseItemActivated
+        this.statusCondition= other.statusCondition
+        this.isDynaAvailable= other.isDynaAvailable
+        this.isDynaActivated= other.isDynaActivated
+        this.isGigaDynaActivated= other.isGigaDynaActivated
+    }
 
     fun hasTypelessMove(): Boolean {
         return statusCondition.equals("Froz", ignoreCase = true) ||

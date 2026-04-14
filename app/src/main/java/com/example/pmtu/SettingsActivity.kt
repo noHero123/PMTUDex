@@ -12,19 +12,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.result.launch
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.common.BitMatrix
 import me.dm7.barcodescanner.zxing.ZXingScannerView
-import java.io.File
 
 class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
 
@@ -204,12 +200,12 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         rootLayout.addView(statusTv)
 
         masterButton = Button(this).apply {
-            text = "Start as Master (Show QR)"
+            text = "Start Server (scan QR code with other devices)"
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply { bottomMargin = 16 }
-            setOnClickListener { startMaster() }
+            setOnClickListener { startServer() }
         }
         rootLayout.addView(masterButton)
 
@@ -278,20 +274,20 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         }
     }
 
-    private fun startMaster() {
+    private fun startServer() {
         val ip = HttpSyncService.getLocalIpAddress(this)
         if (ip == null) {
             Toast.makeText(this, "Connect to WiFi first", Toast.LENGTH_SHORT).show()
             return
         }
         
-        HttpSyncService.startAsMaster()
+        HttpSyncService.startServer()
         val bitmap = generateQRCode("pmtu_connect$ip")
         if (bitmap != null) {
             qrImageView.setImageBitmap(bitmap)
             qrImageView.visibility = View.VISIBLE
         }
-        Toast.makeText(this, "Master mode started. Scan the QR code with the other device.", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Server started. Scan the QR code with the other device.", Toast.LENGTH_LONG).show()
     }
 
     private fun stopScanner() {

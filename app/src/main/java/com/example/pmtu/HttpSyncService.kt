@@ -13,7 +13,7 @@ object HttpSyncService {
     private const val TAG = "HttpSyncService"
     private const val PORT = 8888
 
-    var isMaster = false
+    var isServer = false
     var onDataReceived: ((String) -> Unit)? = null
     
     private val statusListeners = mutableSetOf<(Status, String?) -> Unit>()
@@ -69,8 +69,8 @@ object HttpSyncService {
         )
     }
 
-    fun startAsMaster() {
-        isMaster = true
+    fun startServer() {
+        isServer = true
         stopAll()
         connectionStatus = Status.LISTENING
         statusMessage = "Waiting for connection..."
@@ -95,8 +95,8 @@ object HttpSyncService {
         }
     }
 
-    fun startAsSlave(ip: String) {
-        isMaster = false
+    fun startClient(ip: String) {
+        isServer = false
         stopAll()
         connectionStatus = Status.CONNECTING
         statusMessage = "Connecting to $ip..."

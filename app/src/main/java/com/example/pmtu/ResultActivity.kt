@@ -170,7 +170,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         val receivedOwn = data.ownPokemonJson?.let { Gson().fromJson(it, PokemonInfo::class.java) }
                         val receivedEnemy = data.enemyPokemonJson?.let { Gson().fromJson(it, PokemonInfo::class.java) }
                         
-                        if (HttpSyncService.isMaster) {
+                        if (HttpSyncService.isServer) {
                             viewModel.setEnemyPokemon(receivedOwn)
                             viewModel.setEnemyWeather(data.ownWeather)
                         } else {
@@ -265,7 +265,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun processScanResult(scannedText: String) {
         when (val result = scanHandler.handleScan(scannedText, this)) {
             is ScanHandler.ScanResult.Connect -> {
-                HttpSyncService.startAsSlave(result.ip)
+                HttpSyncService.startClient(result.ip)
                 Toast.makeText(this, "Connecting to Master at ${result.ip}...", Toast.LENGTH_SHORT).show()
             }
             is ScanHandler.ScanResult.Pokemon -> {
@@ -275,6 +275,28 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             else -> {}
         }
+    }
+
+    private fun evolvePokemon(newPokemonID: String, levelDiff:Int = 0, source:String = "lvl") {
+        val oldPoke = viewModel.ownPokemon.value
+        val spriteUrl = "https://www.serebii.net/pokedex-sv/icon/${newPokemonID}.png"
+        val artUrl = "https://www.serebii.net/pokemon/art/${newPokemonID}.png"
+        val newPoke = pokedexRepository.findPokemonByNumber(newPokemonID, spriteUrl, artUrl)
+        if (newPoke != null && oldPoke != null) {
+            newPoke.copyStateFrom(oldPoke)
+            newPoke.additionalLevel += levelDiff
+            if (source == "mega")
+            {
+                newPoke.isBaseItemActivated = true
+            }
+            if(source == "gmax")
+            {
+                newPoke.isGigaDynaActivated = true
+            }
+        }
+
+        viewModel.setOwnPokemon(newPoke)
+        viewModel.setUpdateUI()
     }
 
 
@@ -799,13 +821,37 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             layoutParams = LinearLayout.LayoutParams(150, 150)
             colorFilter = if (!pokemon.isBaseItemActivated) ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) }) else null
             setOnClickListener {
-                val toggleableItems = listOf("Evio", "Left", "Quic", "Wide")
+                val toggleableItems = scanHandler.getToggleAbleItems()
                 if (pokemon.baseItem in toggleableItems) {
                     pokemon.isBaseItemActivated = !pokemon.isBaseItemActivated
                 }
-                refreshMoves()
-                viewModel.saveTeamData()
-                syncViaHttp()
+                if (pokemon.baseItem == "Mega"){
+                    // mega stone is touched
+                    val megaEvolution = pokedexRepository.hasMegaEvolution(pokemon.id)
+                    val isMegaActivated = pokemon.isBaseItemActivated
+                    if(isMegaActivated) {
+                        pokemon.isBaseItemActivated = false
+                        if (megaEvolution != null && !pokemon.isDynaActivated && !pokemon.isGigaDynaActivated) {
+                            evolvePokemon(megaEvolution, 0, "mega")
+                        }
+                    }
+                    if(!isMegaActivated) {
+                        if (pokedexRepository.isMega(pokemon.id)) {
+                            val idx = viewModel.lastSelectedIndex
+                            if (idx != null) {
+                                val target = viewModel.teamPokemon.value[idx]
+                                viewModel.setOwnPokemon(target, idx)
+                            }
+                            viewModel.setUpdateUI()
+                        }
+                    }
+
+                }else {
+                    //normal items
+                    refreshMoves()
+                    viewModel.saveTeamData()
+                    syncViaHttp()
+                }
             }
         }
         row.addView(iv)
@@ -862,7 +908,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             wrapper.addView(diceIv)
 
-            if (own.isDynaAvailable) {
+            // DYNAMAX BALL
+            if (own.isDynaAvailable && !own.isGigaDynaActivated && !pokedexRepository.isMega(own.id)) {
                 val dynaIv = ImageView(this).apply {
                     try { 
                         val bit = BitmapFactory.decodeStream(assets.open("G-Max Ball.png"))
@@ -879,10 +926,47 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         own.isDynaActivated = !own.isDynaActivated
                         viewModel.saveTeamData()
                         viewModel.setUpdateUI()
-                        syncViaHttp()
+                        //syncViaHttp()
                     }
                 }
                 wrapper.addView(dynaIv)
+            }
+            //GIGA DYNAMAX
+            if (own.isDynaAvailable && !own.isDynaActivated) {
+                val gigaDyna = pokedexRepository.hasGMaxEvolution(own.id)
+                if (gigaDyna != null || own.isGigaDynaActivated) {
+                    val dynaIv = ImageView(this).apply {
+                        try {
+                            val bit = BitmapFactory.decodeStream(assets.open("G-Max Symbol.png"))
+                            setImageBitmap(bit)
+                        } catch (e: Exception) {
+                        }
+                        layoutParams = FrameLayout.LayoutParams(120, 120).apply {
+                            gravity = Gravity.CENTER_VERTICAL or Gravity.END
+                            rightMargin = 64+120
+                        }
+                        if (!own.isGigaDynaActivated) {
+                            colorFilter =
+                                ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) })
+                        }
+                        setOnClickListener {
+                            if(gigaDyna!=null)
+                                evolvePokemon(gigaDyna, 0, "gmax")
+                            else
+                            {
+                                val idx = viewModel.lastSelectedIndex
+                                if (idx != null)
+                                {
+                                    val target = viewModel.teamPokemon.value[idx]
+                                    viewModel.setOwnPokemon(target, idx)
+                                }
+                                viewModel.setUpdateUI()
+
+                            }
+                        }
+                    }
+                    wrapper.addView(dynaIv)
+                }
             }
             diceContainer.addView(wrapper)
         }
@@ -1019,7 +1103,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         val team = viewModel.teamPokemon.value
                         viewModel.setOwnPokemon(team[nextIndex], nextIndex)
                     }
-                    //syncViaHttp()
                     viewModel.setUpdateUI()
                 } else {
                     textView.text = "Error reading Pokédex"
@@ -1066,8 +1149,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun updateEvolutionViews() {
-        evolutionsContainer.removeAllViews()
-        preEvolutionsContainer.removeAllViews()
+        //evolutionsContainer.removeAllViews()
+        //preEvolutionsContainer.removeAllViews()
         val own = viewModel.ownPokemon.value ?: return
         if (own.isTrainerPokemon) return
         lifecycleScope.launch(Dispatchers.IO) {
@@ -1227,8 +1310,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         // 3. Show the popup anchored to the clicked view
         popupWindow.showAsDropDown(anchorView, 0, 10)
-
-        Toast.makeText(this, "Select ${key}", Toast.LENGTH_SHORT).show()
     }
 
     private fun speakOut(text: String) {

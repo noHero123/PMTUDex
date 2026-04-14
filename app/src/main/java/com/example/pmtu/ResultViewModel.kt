@@ -204,10 +204,7 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
         lastPokemonId = ""
     }
 
-    fun enableDynaForTeam() {
-        val team = _teamPokemon.value.copyOf()
-        team.forEach { it?.isDynaAvailable = true }
-        _teamPokemon.value = team
+    fun enableDynaForCurrent() {
         _ownPokemon.value?.isDynaAvailable = true
         saveTeamData()
         setUpdateUI()

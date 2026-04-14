@@ -45,6 +45,75 @@ class PokedexRepository(private val context: Context) {
         cache
     }
 
+    /**
+     * Checks if the given pokemon ID has a specific tag in its evolution chain.
+     */
+    fun hasTagInEvolution(number: String, tag:String): String? {
+        // 1. Get potential evolution IDs from the evolutions cache
+        // Note: columns[0] is the base form, columns[1..n] are the evolutions
+        val unQuotedId = number.removeSurrounding("\"")
+        val quotedId = "\"$unQuotedId\""
+        val evolutionIds = mutableListOf<String>()
+
+        evolutionsCache.forEach { columns ->
+            if (columns.isNotEmpty() && columns[0] == quotedId) {
+                for (i in 1 until columns.size) {
+                    val cleanId = columns[i].trim().removeSurrounding("\"")
+                    if (cleanId.isNotEmpty()) {
+                        evolutionIds.add(cleanId)
+                    }
+                }
+            }
+        }
+
+        // 2. For every evolution ID found, check its name in the pokedexCache
+        evolutionIds.forEach { evoId ->
+            val data = pokedexCache[evoId]
+            if (data != null && data.size > 1) {
+                // columns[1] is the Name in your findPokemonByNumber logic
+                val name = data[1]
+                if (name.contains(tag, ignoreCase = true)) {
+                    return evoId
+                }
+            }
+        }
+
+        return null
+    }
+
+    fun hasMegaEvolution(number: String): String?{
+        return hasTagInEvolution(number, "{Mega}")
+    }
+
+    fun hasGMaxEvolution(number: String): String?{
+        return hasTagInEvolution(number, "{G-Max}")
+    }
+
+    fun isMega(number: String): Boolean {
+        val data = pokedexCache[number]
+        if (data != null && data.size > 1) {
+            // columns[1] is the Name in your findPokemonByNumber logic
+            val name = data[1]
+            if (name.contains("{Mega}", ignoreCase = true)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    fun isGmax(number: String): Boolean {
+        val data = pokedexCache[number]
+        if (data != null && data.size > 1) {
+            // columns[1] is the Name in your findPokemonByNumber logic
+            val name = data[1]
+            if (name.contains("{G-Max}", ignoreCase = true)) {
+                return true
+            }
+        }
+        return false
+    }
+
+
     fun getGermanText(number: String): MutableList<String> {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val lang = prefs.getString("language", "en")
