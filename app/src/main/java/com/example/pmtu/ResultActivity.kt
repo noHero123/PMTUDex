@@ -165,7 +165,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 // Re-open server port
                 HttpSyncService.startServer()
             } else {
-                // Try to reconnect to the last known master IP
+                // Try to reconnect to the last known Server IP
                 HttpSyncService.lastConnectedIp?.let { ip ->
                     HttpSyncService.startClient(ip)
                 }
@@ -308,7 +308,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         when (val result = scanHandler.handleScan(scannedText, this)) {
             is ScanHandler.ScanResult.Connect -> {
                 HttpSyncService.startClient(result.ip)
-                Toast.makeText(this, "Connecting to Master at ${result.ip}...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Connecting to Server at ${result.ip}...", Toast.LENGTH_SHORT).show()
             }
             is ScanHandler.ScanResult.Pokemon -> {
                 val spriteUrl = "https://www.serebii.net/pokedex-sv/icon/${result.number}.png"
@@ -589,8 +589,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 viewModel.setUpdateUI()
                 if (viewModel.enemyPokemon.value != null) {
                     //syncViaHttp()
-                } else {
-                    Toast.makeText(this@ResultActivity, "No enemy to switch with", Toast.LENGTH_SHORT).show()
                 }
             }
         }
