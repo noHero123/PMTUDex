@@ -25,6 +25,21 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -743,7 +758,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             viewModel.ownPokemon.value!!,
             viewModel.enemyPokemon.value,
             viewModel.ownWeather.value,
-            viewModel.enemyWeather.value) ?: return
+            viewModel.enemyWeather.value, viewModel.enemyUsesProtect) ?: return
         if (prefs.getBoolean("show_speakers", false)) {
             val speakerIv = ImageView(this).apply {
                 try { setImageBitmap(BitmapFactory.decodeStream(assets.open("speaker.png"))) } catch (e: Exception) {}
@@ -791,7 +806,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             viewModel.enemyPokemon.value,
             viewModel.ownWeather.value,
             viewModel.enemyWeather.value,
-            pokedexRepository
+            pokedexRepository,
+            moveRepository
         ){ effectName, view, path ->
             showDetailPopup(effectName, view, path) // Your popup function
         }
@@ -955,6 +971,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 diceContainer.addView(diceIv)
             }
         } else {
+            //only show level Dice
             val wrapper = FrameLayout(this).apply {
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             }
@@ -966,8 +983,41 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             wrapper.addView(diceIv)
 
-            //Protection trigger:
+            //Protect button
+            // Protection trigger:
+            val enemy = viewModel.enemyPokemon.value
 
+            var hasProtection = false
+            if(enemy!=null)
+                hasProtection = moveRepository.hasProtection(enemy,own, viewModel.enemyWeather.value, viewModel.ownWeather.value, pokedexRepository  )
+
+            if (hasProtection) {
+                val protectionIv = ImageView(this).apply {
+                    try {
+                        val bit = BitmapFactory.decodeStream(assets.open("move_symbols/Black/Protection 1.png"))
+                        setImageBitmap(bit)
+                    } catch (e: Exception) {
+                        // Fallback or log error if protection.png is missing
+                    }
+                    layoutParams = FrameLayout.LayoutParams(120, 120).apply {
+                        gravity = Gravity.CENTER_VERTICAL or Gravity.START
+                        leftMargin = 64
+                    }
+                    alpha = if (viewModel.enemyUsesProtect) 1.0f else 0.3f
+                    setOnClickListener {
+                        viewModel.enemyUsesProtect =  !viewModel.enemyUsesProtect
+                        viewModel.setUpdateUI()
+                    }
+                }
+                wrapper.addView(protectionIv)
+            }
+            else
+            {
+                if(viewModel.enemyUsesProtect)
+                {
+                    viewModel.enemyUsesProtect = false
+                }
+            }
 
             // DYNAMAX BALL
             if (own.isDynaAvailable && !own.isGigaDynaActivated && !pokedexRepository.isMega(own.id)) {

@@ -60,126 +60,7 @@ class PokemonUiMapper(private val context: Context) {
         container.addView(iv)
     }
 
-    fun getAllEffects(result: MoveRepository.PowerResult,
-                      ownPokemon: PokemonInfo?,
-                      enemyPokemon: PokemonInfo?,
-                      ownWeather: String?,
-                      enemyWeather: String?,
-                      pokedexRepository: PokedexRepository) : List<Pair<String,String>> {
-        var usedKing = false
-        var usedZoom = false
-        val moveData = result.moveData
-        var allEffects = mutableListOf<Pair<String,String>>()
-        if(moveData.englishName==null)
-        {
-            return allEffects
-        }
-        var finalMoveName = moveData.englishName
-        val isSpecialMove = moveData.powerStr!!.contains("*")
-        if(isSpecialMove)
-        {
-            finalMoveName+="*"
-        }
-        var meff1 = moveData.effect1?.replace("{", "")?.replace("}", "")?.trim() ?: ""
-        var meff2 = moveData.effect2?.replace("{", "")?.replace("}", "")?.trim() ?: ""
-        val effs = mutableListOf(meff1, meff2) // Initialization
-        if (ownPokemon!!.isDynaActivated)
-        {
-            //dynamex always erases old effects
-            effs.clear()
-            effs.add(getDynamaxEffect(moveData.englishName))
-        }
-        if (ownPokemon.isGigaDynaActivated || ownPokemon.name.contains("Gigantamax"))
-        {
-            effs.clear()
-            val geff = getDynamaxEffect(moveData.englishName)
-            val geff2 = getGigaDynamaxEffect(moveData.englishName)
-            if(!geff2.isEmpty())
-            {
-                //gmax effects
-                for(e in geff2)
-                {
-                    effs.add(e)
-                }
-            }else {
-                if (geff != "") {
-                    effs.add(geff)
-                }
-            }
 
-        }
-
-        for (effi in effs)
-        {
-            if(effi == "") {
-                continue
-            }
-            var eff = effi
-            // Kings stone
-            if(ownPokemon.baseItem == "King" && !usedKing && eff.contains("B Dis"))
-            {
-                val counter = (eff.split(" ").last()).toIntOrNull()
-                if (counter != null && counter > 1)
-                {
-                    eff = eff.replace(counter.toString(), (counter - 1).toString())
-                    usedKing = true
-                }
-            }
-            // Zoom Lense
-            if(ownPokemon.baseItem == "Zoom" && !usedZoom && eff.contains("W Adv"))
-            {
-                val counter = (eff.split(" ").last()).toIntOrNull()
-                if (counter != null && counter > 1)
-                {
-                    eff = eff.replace(counter.toString(), (counter - 1).toString())
-                    usedZoom = true
-                }
-            }
-            //Wide lense
-            if(ownPokemon.baseItem == "Wide" && !eff.contains("KO") && ownPokemon.isBaseItemActivated)
-            {
-                val counter = (eff.split(" ").last()).toIntOrNull()
-                if (counter != null && counter > 1)
-                {
-                    eff = eff.replace(counter.toString(), (counter - 1).toString())
-                }
-            }
-
-            // Add effects
-            if(enemyWeather == "Mist" && eff.contains("Dis"))
-            {
-                //ignore diss advantage if enemy has mist
-            }
-            else
-            {
-                allEffects.add(Pair(eff, finalMoveName))
-            }
-        }
-
-        //additional effects:
-        if(ownWeather == "Renewal")
-        {
-            allEffects.add(Pair("W Life", ""))
-        }
-        if(enemyWeather != "Mist" && ownPokemon.baseItem == "Evio" && ownPokemon.isBaseItemActivated && !pokedexRepository.isFullyEvolved(ownPokemon.id))
-        {
-            //evio adds a dis to your attacks:
-            allEffects.add(Pair("B Dis 1", ""))
-        }
-        if(enemyWeather != "Mist" && ownPokemon.baseItem == "King" && !usedKing){
-            allEffects.add(Pair("B Dis 5", ""))
-        }
-        if(ownPokemon.baseItem == "Zoom" && !usedZoom){
-            allEffects.add(Pair("W Adv 5", ""))
-        }
-        if(ownPokemon.baseItem == "Quic" && ownPokemon.isBaseItemActivated){
-            allEffects.add(Pair("W Priority", ""))
-        }
-        if(ownPokemon.baseItem == "Razo"){
-            allEffects.add(Pair("W Extra 6", "Razo"))
-        }
-        return allEffects
-    }
 
     fun formatMoveText(
         result: MoveRepository.PowerResult,
@@ -190,6 +71,7 @@ class PokemonUiMapper(private val context: Context) {
         ownWeather: String?,
         enemyWeather: String?,
         pokedexRepository: PokedexRepository,
+        moveRepo: MoveRepository,
         onEffectClicked: (String, View, String?) -> Unit
     ): CharSequence {
         val moveData = result.moveData
@@ -265,7 +147,7 @@ class PokemonUiMapper(private val context: Context) {
             }
         }
 
-        val allEffects = getAllEffects(result, ownPokemon, enemyPokemon, ownWeather, enemyWeather, pokedexRepository)
+        val allEffects = moveRepo.getAllEffects(result, ownPokemon, enemyPokemon, ownWeather, enemyWeather, pokedexRepository)
         for(effect in allEffects)
         {
             addEffectIcon(builder, effect.first, textView, effect.second, onEffectClicked)
@@ -274,68 +156,6 @@ class PokemonUiMapper(private val context: Context) {
         return builder
     }
 
-    private fun getDynamaxEffect(moveName:String):String
-    {
-        if (moveName == "Strike")
-            return "W Priority"
-        if (moveName == "Knuckle")
-            return "W Adv 1"
-        if (moveName == "Airstream")
-            return "W Priority"
-        if (moveName == "Ooze")
-            return "W Adv 1"
-        if (moveName == "Rockfall")
-            return "Sandstorm"
-        if (moveName == "Flutterby")
-            return "B Dis 1"
-        if (moveName == "Phantasm")
-            return "W Adv 1"
-        if (moveName == "Steelspike")
-            return "B Dis 1"
-        if (moveName == "Flare")
-            return "Sunny"
-        if (moveName == "Geyser")
-            return "Rain"
-        if (moveName == "Overgrowth")
-            return "Grassy Terrain"
-        if (moveName == "Lightning")
-            return "Electric Terrain"
-        if (moveName == "Mindstorm")
-            return "Psychic Terrain"
-        if (moveName == "Hailstorm")
-            return "Hail"
-        if (moveName == "Wyrmwind")
-            return "B Dis 1"
-        if (moveName == "Darkness")
-            return "W Adv 1"
-        if (moveName == "Starfall")
-            return "Misty Terrain"
-        if (moveName == "Guard")
-            return "W Prot 1"
-        return ""
-    }
-
-    private fun getGigaDynamaxEffect(moveName:String):List<String>
-    {
-        var effects = mutableListOf<String>()
-        if (moveName.equals("BEFUDDLE", ignoreCase = true)){
-            effects.add("B Pois 2")
-            effects.add("B Para 4")
-            effects.add("B Sleep 6")
-        }
-        if (moveName.equals("DEPLETION", ignoreCase = true)){
-            effects.add("W Recharge")
-        }
-        if (moveName.equals("STUN SHOCK", ignoreCase = true)){
-            effects.add("B Pois 3")
-            effects.add("B Para 6")
-        }
-        if (moveName.equals("WIND RAGE", ignoreCase = true)){
-            effects.add("Clear")
-        }
-
-        return effects
-    }
 
 
     private fun isAssetExists(pathInAssetsDir: String): Boolean {
