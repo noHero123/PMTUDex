@@ -382,7 +382,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             layoutParams = LinearLayout.LayoutParams(1, 64)
         })
 
-        // Center
+        // Level Dice
         val centerContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -413,8 +413,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         //centerContainer.addView(imageEvoLayout)
         mainContainer.addView(imageEvoLayout)
 
-// 2. Define the side containers but DON'T add them to centerContainer
-// Instead, we set them up to be added to the rootLayout (the FrameLayout)
+        // 2. Define the side containers but DON'T add them to centerContainer
+        // Instead, we set them up to be added to the rootLayout (the FrameLayout)
         preEvolutionsContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -439,7 +439,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
         }
 
-// 3. Add them to the rootLayout so they float independently of the vertical list
+        // 3. Add them to the rootLayout so they float independently of the vertical list
         rootLayout.addView(preEvolutionsContainer)
         rootLayout.addView(evolutionsContainer)
 
@@ -965,6 +965,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 setOnClickListener { showDice(true) }
             }
             wrapper.addView(diceIv)
+
+            //Protection trigger:
+
 
             // DYNAMAX BALL
             if (own.isDynaAvailable && !own.isGigaDynaActivated && !pokedexRepository.isMega(own.id)) {

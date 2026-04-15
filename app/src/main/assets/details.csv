@@ -24,6 +24,9 @@
 "Pois","Poisoned","At the end of a battle round involving this Pokémon, or after every 3 spaces moved on your turn, add a counter to this status. When this status has 4 counters, this Pokémon faints. Poisoned Pokémon always lose ties, regardless of the kind of battle. If to Poisoned Pokémon tie, they both faint. Discard this status upon fainting."
 "Slee","Sleep","This Pokémon cannot select a move. They attack with a type-less move with an Attack Strength of 0. Before moves are selected, remove 1 counter from this status. If there are no counters left or upon fainting, discard this status."
 
+### effects from cards:
+"Razo","Razor Claw", "Upgrade the attack dice used for this move for this battle round (d4 becomes d6, d6 becomes d8)."
+
 ### weather effect on move
 "Clear", "FIELD CLEAR", "After the effect rolls this round, discard all Field Move cards in play."
 "Electric Terrain", "ELECTRIC TERRAIN", "Play the Electric Terrain Field Move card."

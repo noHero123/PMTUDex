@@ -113,7 +113,6 @@ class PokedexRepository(private val context: Context) {
         return false
     }
 
-
     fun getGermanText(number: String): MutableList<String> {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val lang = prefs.getString("language", "en")

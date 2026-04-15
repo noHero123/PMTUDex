@@ -60,6 +60,127 @@ class PokemonUiMapper(private val context: Context) {
         container.addView(iv)
     }
 
+    fun getAllEffects(result: MoveRepository.PowerResult,
+                      ownPokemon: PokemonInfo?,
+                      enemyPokemon: PokemonInfo?,
+                      ownWeather: String?,
+                      enemyWeather: String?,
+                      pokedexRepository: PokedexRepository) : List<Pair<String,String>> {
+        var usedKing = false
+        var usedZoom = false
+        val moveData = result.moveData
+        var allEffects = mutableListOf<Pair<String,String>>()
+        if(moveData.englishName==null)
+        {
+            return allEffects
+        }
+        var finalMoveName = moveData.englishName
+        val isSpecialMove = moveData.powerStr!!.contains("*")
+        if(isSpecialMove)
+        {
+            finalMoveName+="*"
+        }
+        var meff1 = moveData.effect1?.replace("{", "")?.replace("}", "")?.trim() ?: ""
+        var meff2 = moveData.effect2?.replace("{", "")?.replace("}", "")?.trim() ?: ""
+        val effs = mutableListOf(meff1, meff2) // Initialization
+        if (ownPokemon!!.isDynaActivated)
+        {
+            //dynamex always erases old effects
+            effs.clear()
+            effs.add(getDynamaxEffect(moveData.englishName))
+        }
+        if (ownPokemon.isGigaDynaActivated || ownPokemon.name.contains("Gigantamax"))
+        {
+            effs.clear()
+            val geff = getDynamaxEffect(moveData.englishName)
+            val geff2 = getGigaDynamaxEffect(moveData.englishName)
+            if(!geff2.isEmpty())
+            {
+                //gmax effects
+                for(e in geff2)
+                {
+                    effs.add(e)
+                }
+            }else {
+                if (geff != "") {
+                    effs.add(geff)
+                }
+            }
+
+        }
+
+        for (effi in effs)
+        {
+            if(effi == "") {
+                continue
+            }
+            var eff = effi
+            // Kings stone
+            if(ownPokemon.baseItem == "King" && !usedKing && eff.contains("B Dis"))
+            {
+                val counter = (eff.split(" ").last()).toIntOrNull()
+                if (counter != null && counter > 1)
+                {
+                    eff = eff.replace(counter.toString(), (counter - 1).toString())
+                    usedKing = true
+                }
+            }
+            // Zoom Lense
+            if(ownPokemon.baseItem == "Zoom" && !usedZoom && eff.contains("W Adv"))
+            {
+                val counter = (eff.split(" ").last()).toIntOrNull()
+                if (counter != null && counter > 1)
+                {
+                    eff = eff.replace(counter.toString(), (counter - 1).toString())
+                    usedZoom = true
+                }
+            }
+            //Wide lense
+            if(ownPokemon.baseItem == "Wide" && !eff.contains("KO") && ownPokemon.isBaseItemActivated)
+            {
+                val counter = (eff.split(" ").last()).toIntOrNull()
+                if (counter != null && counter > 1)
+                {
+                    eff = eff.replace(counter.toString(), (counter - 1).toString())
+                }
+            }
+
+            // Add effects
+            if(enemyWeather == "Mist" && eff.contains("Dis"))
+            {
+                //ignore diss advantage if enemy has mist
+            }
+            else
+            {
+                allEffects.add(Pair(eff, finalMoveName))
+            }
+        }
+
+        //additional effects:
+        if(ownWeather == "Renewal")
+        {
+            allEffects.add(Pair("W Life", ""))
+        }
+        if(enemyWeather != "Mist" && ownPokemon.baseItem == "Evio" && ownPokemon.isBaseItemActivated && !pokedexRepository.isFullyEvolved(ownPokemon.id))
+        {
+            //evio adds a dis to your attacks:
+            allEffects.add(Pair("B Dis 1", ""))
+        }
+        if(enemyWeather != "Mist" && ownPokemon.baseItem == "King" && !usedKing){
+            allEffects.add(Pair("B Dis 5", ""))
+        }
+        if(ownPokemon.baseItem == "Zoom" && !usedZoom){
+            allEffects.add(Pair("W Adv 5", ""))
+        }
+        if(ownPokemon.baseItem == "Quic" && ownPokemon.isBaseItemActivated){
+            allEffects.add(Pair("W Priority", ""))
+        }
+        if(ownPokemon.baseItem == "Razo"){
+            allEffects.add(Pair("W Extra 6", "Razo"))
+        }
+        return allEffects
+    }
+
     fun formatMoveText(
         result: MoveRepository.PowerResult,
         textView: TextView,
@@ -143,107 +264,12 @@ class PokemonUiMapper(private val context: Context) {
                 builder.setSpan(ForegroundColorSpan(Color.GREEN), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
         }
-        var usedKing = false
-        var usedZoom = false
-        var meff1 = moveData.effect1?.replace("{", "")?.replace("}", "")?.trim() ?: ""
-        var meff2 = moveData.effect2?.replace("{", "")?.replace("}", "")?.trim() ?: ""
-        val effs = mutableListOf(meff1, meff2) // Initialization
-        if (ownPokemon!!.isDynaActivated)
-        {
-            //dynamex always erases old effects
-            effs.clear()
-            effs.add(getDynamaxEffect(moveData.englishName))
-        }
-        if (ownPokemon!!.isGigaDynaActivated || ownPokemon.name.contains("Gigantamax"))
-        {
-            effs.clear()
-            val geff = getDynamaxEffect(moveData.englishName)
-            val geff2 = getGigaDynamaxEffect(moveData.englishName)
-            if(!geff2.isEmpty())
-            {
-                //gmax effects
-                for(e in geff2)
-                {
-                    effs.add(e)
-                }
-            }else {
-                if (geff != "") {
-                    effs.add(geff)
-                }
-            }
 
-        }
-
-        effs.add("")
-        for (effi in effs)
+        val allEffects = getAllEffects(result, ownPokemon, enemyPokemon, ownWeather, enemyWeather, pokedexRepository)
+        for(effect in allEffects)
         {
-            if(effi == "")
-            {continue}
-            var eff = effi
-            // Kings stone
-            if(ownPokemon?.baseItem == "King" && !usedKing && eff.contains("B Dis"))
-            {
-                val counter = (eff.split(" ").last()).toIntOrNull()
-                if (counter != null && counter > 1)
-                {
-                    eff = eff.replace(counter.toString(), (counter - 1).toString())
-                    usedKing = true
-                }
-            }
-            // Zoom Lense
-            if(ownPokemon?.baseItem == "Zoom" && !usedZoom && eff.contains("W Adv"))
-            {
-                val counter = (eff.split(" ").last()).toIntOrNull()
-                if (counter != null && counter > 1)
-                {
-                    eff = eff.replace(counter.toString(), (counter - 1).toString())
-                    usedZoom = true
-                }
-            }
-            //Wide lense
-            if(ownPokemon?.baseItem == "Wide" && !eff.contains("KO") && ownPokemon.isBaseItemActivated)
-            {
-                val counter = (eff.split(" ").last()).toIntOrNull()
-                if (counter != null && counter > 1)
-                {
-                    eff = eff.replace(counter.toString(), (counter - 1).toString())
-                }
-            }
-
-            // Add effects
-            if(enemyWeather == "Mist" && eff.contains("Dis"))
-            {
-                //ignore diss advantage if enemy has mist
-            }
-            else
-            {
-                addEffectIcon(builder, eff, textView,finalMoveName?:"", onEffectClicked)
-            }
+            addEffectIcon(builder, effect.first, textView, effect.second, onEffectClicked)
         }
-
-        //additional effects:
-        if(ownWeather == "Renewal")
-        {
-            addEffectIcon(builder, "W Life", textView,"", onEffectClicked)
-        }
-        if(enemyWeather != "Mist" && ownPokemon?.baseItem == "Evio" && ownPokemon.isBaseItemActivated && !pokedexRepository.isFullyEvolved(ownPokemon.id))
-        {
-            //evio adds a dis to your attacks:
-            addEffectIcon(builder, "B Dis 1", textView,"", onEffectClicked)
-        }
-        if(enemyWeather != "Mist" && ownPokemon?.baseItem == "King" && !usedKing){
-            addEffectIcon(builder, "B Dis 5", textView,"", onEffectClicked)
-        }
-        if(ownPokemon?.baseItem == "Zoom" && !usedZoom){
-            addEffectIcon(builder, "W Adv 5", textView,"", onEffectClicked)
-        }
-        if(ownPokemon?.baseItem == "Quic" && ownPokemon.isBaseItemActivated){
-            addEffectIcon(builder, "W Priority", textView,"", onEffectClicked)
-        }
-        if(ownPokemon?.baseItem == "Razo"){
-            addEffectIcon(builder, "W Extra 6", textView, "Razo", onEffectClicked)
-        }
-
 
         return builder
     }
