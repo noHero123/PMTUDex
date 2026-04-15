@@ -156,7 +156,20 @@ class MoveRepository(private val context: Context) {
         var originalBasePower = getBasePower(moveName, pokemon, enemy)
 
         var moveData: MoveData
-        if (pokemon.isDynaActivated)
+        //calculate if the move is dynamaxed version:
+        var is_dynamax = pokemon.isDynaActivated
+        if(pokemon.isGigaDynaActivated)
+        {
+            if(moveName.contains("{G-Max}", ignoreCase = true))
+            {
+                is_dynamax = false
+            }
+            else
+            {
+                is_dynamax = true
+            }
+        }
+        if (is_dynamax)
         {
             val newMoveName = getMaxMove(moveName, originalBasePower)
             moveData = fetchMoveData(newMoveName) ?: return null
@@ -167,7 +180,7 @@ class MoveRepository(private val context: Context) {
 
         var cleanType = moveData.type?.replace("{", "")?.replace("}", "")?.trim() ?: ""
 
-        if (pokemon.isDynaActivated)
+        if (is_dynamax)
         {
             cleanType =  getMaxMoveType(moveName, originalBasePower)
         }

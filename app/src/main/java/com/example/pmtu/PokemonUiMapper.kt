@@ -150,6 +150,7 @@ class PokemonUiMapper(private val context: Context) {
         val effs = mutableListOf(meff1, meff2) // Initialization
         if (ownPokemon!!.isDynaActivated)
         {
+            //dynamex always erases old effects
             effs.clear()
             effs.add(getDynamaxEffect(moveData.englishName))
         }
@@ -158,14 +159,19 @@ class PokemonUiMapper(private val context: Context) {
             effs.clear()
             val geff = getDynamaxEffect(moveData.englishName)
             val geff2 = getGigaDynamaxEffect(moveData.englishName)
-            if(geff != ""){
-                effs.add(geff)
-            }
-            //gmax effects
-            for(e in geff2)
+            if(!geff2.isEmpty())
             {
-                effs.add(e)
+                //gmax effects
+                for(e in geff2)
+                {
+                    effs.add(e)
+                }
+            }else {
+                if (geff != "") {
+                    effs.add(geff)
+                }
             }
+
         }
 
         effs.add("")
@@ -211,31 +217,31 @@ class PokemonUiMapper(private val context: Context) {
             }
             else
             {
-                addEffectIcon(builder, eff, textView, onEffectClicked)
+                addEffectIcon(builder, eff, textView,finalMoveName?:"", onEffectClicked)
             }
         }
 
         //additional effects:
         if(ownWeather == "Renewal")
         {
-            addEffectIcon(builder, "W Life", textView, onEffectClicked)
+            addEffectIcon(builder, "W Life", textView,"", onEffectClicked)
         }
         if(enemyWeather != "Mist" && ownPokemon?.baseItem == "Evio" && ownPokemon.isBaseItemActivated && !pokedexRepository.isFullyEvolved(ownPokemon.id))
         {
             //evio adds a dis to your attacks:
-            addEffectIcon(builder, "B Dis 1", textView, onEffectClicked)
+            addEffectIcon(builder, "B Dis 1", textView,"", onEffectClicked)
         }
         if(enemyWeather != "Mist" && ownPokemon?.baseItem == "King" && !usedKing){
-            addEffectIcon(builder, "B Dis 5", textView, onEffectClicked)
+            addEffectIcon(builder, "B Dis 5", textView,"", onEffectClicked)
         }
         if(ownPokemon?.baseItem == "Zoom" && !usedZoom){
-            addEffectIcon(builder, "W Adv 5", textView, onEffectClicked)
+            addEffectIcon(builder, "W Adv 5", textView,"", onEffectClicked)
         }
         if(ownPokemon?.baseItem == "Quic" && ownPokemon.isBaseItemActivated){
-            addEffectIcon(builder, "W Priority", textView, onEffectClicked)
+            addEffectIcon(builder, "W Priority", textView,"", onEffectClicked)
         }
         if(ownPokemon?.baseItem == "Razo"){
-            addEffectIcon(builder, "W Extra 6", textView, onEffectClicked)
+            addEffectIcon(builder, "W Extra 6", textView, "Razo", onEffectClicked)
         }
 
 
@@ -399,7 +405,7 @@ class PokemonUiMapper(private val context: Context) {
         }
         return null
     }
-    private fun addEffectIcon(builder: SpannableStringBuilder, effect: String?, textView: TextView, onEffectClicked: ((String, View, String?) -> Unit)? = null) {
+    private fun addEffectIcon(builder: SpannableStringBuilder, effect: String?, textView: TextView, altEffectName:String = "", onEffectClicked: ((String, View, String?) -> Unit)? = null) {
         if (effect.isNullOrBlank()) return
         val cleanEffect = effect.replace("{", "").replace("}", "").trim()
         if (cleanEffect.isEmpty()) return
@@ -428,7 +434,12 @@ class PokemonUiMapper(private val context: Context) {
             if (onEffectClicked != null) {
                 val clickableSpan = object : android.text.style.ClickableSpan() {
                     override fun onClick(widget: View) {
-                        onEffectClicked(cleanEffect, widget, image_path)
+                        var effectName = cleanEffect
+                        if(cleanEffect.contains(" Extra "))
+                        {
+                            effectName = altEffectName
+                        }
+                        onEffectClicked(effectName, widget, image_path)
                     }
                     override fun updateDrawState(ds: android.text.TextPaint) {
                         ds.isUnderlineText = false // Remove the default link underline
