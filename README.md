@@ -1,4 +1,4 @@
-# PMTUDex (Pokémondex and Battle Assist for Pokemon Master Trainer Ultimate Edition)
+# PMTUDex (Pokédex and Battle Assist for Pokemon Master Trainer Ultimate Edition)
 
 PMTU is an Android application designed to help players manage and track Pokémon teams, view detailed Pokedex entries, and synchronize data with other Devices. The app features advanced state management for battle conditions (Tera, Dynamax, Status Effects, Items, Type Enhancers) and supports english and german.
 
