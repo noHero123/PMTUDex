@@ -253,7 +253,9 @@ class MoveRepository(private val context: Context) {
 
         var effectiveness = 0
         if (enemy != null) {
-            effectiveness = calculateMoveEffectiveness(cleanType, moveData.ignores, enemy.getType1(), enemy.getType2())
+            val pokeIsStellar = pokemon.isTeraActivated && (pokemon.teraType == "Stellar")
+            val ignoreEffi = moveData.ignores || pokeIsStellar
+            effectiveness = calculateMoveEffectiveness(cleanType, ignoreEffi, enemy.getType1(), enemy.getType2())
             if (effectiveness == -4) effectiveness = -3
             if (effectiveness == 4) effectiveness = 3
             
@@ -591,6 +593,10 @@ class MoveRepository(private val context: Context) {
         if(ownPokemon.baseItem == "Razo"){
             allEffects.add(Pair("W Extra 6", "Razo"))
         }
+        if(ownPokemon.isTeraActivated && ownPokemon.teraType == "Stellar")
+        {
+            allEffects.add(Pair("W Ignore", ""))
+        }
         return allEffects
     }
 
@@ -643,9 +649,11 @@ class MoveRepository(private val context: Context) {
         var hasSuper = false
         var hasNeutral = false
 
+        val pokeIsStellar = pokemon.isTeraActivated && (pokemon.teraType == "Stellar")
         fun check(data: MoveData?) {
             if (data == null) return
-            val total = calculateMoveEffectiveness(data.type, data.ignores, enemy.getType1(), enemy.getType2())
+            val ignore_effi = data.ignores || pokeIsStellar
+            val total = calculateMoveEffectiveness(data.type, ignore_effi, enemy.getType1(), enemy.getType2())
             if (total > 0) hasSuper = true
             if (total >= 0) hasNeutral = true
         }
@@ -659,10 +667,6 @@ class MoveRepository(private val context: Context) {
         check(move3Data)
 
         return if (hasSuper) 1 else if (!hasNeutral) -1 else 0
-    }
-
-    fun isPokemonDangerous(attacker: PokemonInfo, target: PokemonInfo): Int {
-        return getPokemonEffectiveness(attacker, target)
     }
 
     private fun loadAllTMs() {
