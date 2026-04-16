@@ -32,6 +32,7 @@ PMTU is an Android application designed to help players manage and track Pokémo
      - Attack value of the Pokemon, includs: base level, additional level (given by the level dice above), effectiveness, attached items, status conditions, weather effects... A green/red number indicates, that the move is effective/ineffective against the selected enemy. (Tap moves with a * to show explanation) <br>
      - possible attack effects (tap to show an explanation of the effect)<br>
      - green/red arrow: additional indicator for type effectiveness (arrows for red/green weakness)<br>
+     - trash sign allows you to remove Items, (z) Moves etc<br>
 10. current enemy Pokémon (a press on the trash sign will remove the enemy Pokémon)<br>
 11. Button to scan QR codes of the Cards (Pokemon, Items, ...) or the QR code to connect to other device. Items will automatically attacked to the current active Pokémon.<br>
 12. Botton to switch the current Pokemon and the current Enemy<br>
