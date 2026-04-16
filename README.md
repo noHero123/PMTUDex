@@ -46,7 +46,7 @@ After pressing the settings button, you are able to:<br>
 - manage your team<br>
 - start a Server: a QR code is displayed, that other devices with the app can scan. It will allow to synconize between your current end the others enemy and vice versa:<br>
   <img src="readme_pics/server_mode - Kopie.jpg" width="500"/><br>
-  the Squirtle was only scanned with the upper device, the Chamander only scanned, with the lower device. but you can see the card that was not scanned as the enemy.<br>
+  the Squirtle was only scanned with the upper device, the Chamander only scanned, with the lower device. but you can see the card that was not scanned as the enemy. (Note: I created Cards instead of Tokens, because i find them practical. But in the QR-files-folder you will find the backs of the token with QR codes)<br>
 
 ## Examples: 
 Scanning a trainer card will show the Pokémon with its attacks.<br>
