@@ -155,7 +155,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     override fun onResume() {
         super.onResume()
-
+        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val currentLang = prefs.getString("language", "en") ?: "en"
+        tts?.setLanguage(if (currentLang == "de") Locale.GERMAN else Locale.ENGLISH)
+        viewModel.checkLanguageAndReset(currentLang, pokedexRepository)
         // 1. Re-hide system bars (sometimes they reappear after backgrounding)
         setupWindow()
 

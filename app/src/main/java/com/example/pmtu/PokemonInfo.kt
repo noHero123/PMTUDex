@@ -72,4 +72,10 @@ data class PokemonInfo(
         return type2
     }
 
+    fun resetPokedex(pokedexRepository: PokedexRepository) {
+        nextPokedexIndex = 0
+        pokedexEntries = pokedexRepository.getGermanText(this.id)
+        name = pokedexRepository.getGermanName(this.id)
+    }
+
 }

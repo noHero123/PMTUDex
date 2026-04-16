@@ -55,6 +55,9 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
     // In your ViewModel or Activity State
     var enemyUsesProtect  = false
 
+    // Store the last known language
+    private var lastLanguage: String? = null
+
     init {
         loadTeamData()
     }
@@ -76,6 +79,20 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
     }
 
 
+
+    fun checkLanguageAndReset(currentLanguage: String, pokedexRepository: PokedexRepository) {
+        // If lastLanguage is null, it's the first load; if it's different, the user changed it
+        if (lastLanguage != null && lastLanguage != currentLanguage) {
+            ownPokemon.value?.resetPokedex(pokedexRepository)
+            // Reset enemy
+            enemyPokemon.value?.resetPokedex(pokedexRepository)
+            // Reset entire team
+            teamPokemon.value.forEach { it?.resetPokedex(pokedexRepository) }
+            saveTeamData()
+
+        }
+        lastLanguage = currentLanguage
+    }
 
     fun setOwnPokemon(pokemon: PokemonInfo?, index: Int? = null) {
         _ownPokemon.value = pokemon
