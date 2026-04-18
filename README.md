@@ -3,7 +3,7 @@
 PMTU is an Android application designed to help players manage and track Pokémon teams, view detailed Pokedex entries, and synchronize data with other Devices. The app features advanced state management for battle conditions (Tera, Dynamax, Status Effects, Items, Type Enhancers) and supports english and german.
 
 ## How To:
-- print and cut the cards/token-backgounds in [QR_files](QR_files/)
+- print and cut the cards/token-backgounds in [QR_files](https://github.com/noHero123/PMTUDexCards)
 - download the latest apk file in https://github.com/noHero123/PMTUDex/releases and install it ( [How to](https://www.lifewire.com/install-apk-on-android-4177185) )
 - start the app
 - profit
