@@ -704,7 +704,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun loadTeamSprite(pokemon: PokemonInfo, index: Int, imageView: ImageView) {
         lifecycleScope.launch {
             val url = if (pokemon.spriteUrl.isNotEmpty()) pokemon.spriteUrl else "https://www.serebii.net/pokedex-sv/icon/${pokemon.id}.png"
-            val bitmap = loadCachedBitmap(url) ?: withContext(Dispatchers.IO) {
+            val bitmap = getPokemonBitmap(url) ?: withContext(Dispatchers.IO) {
                 try {
                     val b = BitmapFactory.decodeStream(URL(url).openStream())
                     if (b != null) saveBitmapToCache(url, b)
@@ -1184,7 +1184,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
 
         lifecycleScope.launch {
-            val bitmap = loadCachedBitmap(spriteUrl) ?: withContext(Dispatchers.IO) {
+            val bitmap = getPokemonBitmap(spriteUrl) ?: withContext(Dispatchers.IO) {
                 try {
                     val b = BitmapFactory.decodeStream(URL(spriteUrl).openStream())
                     if (b != null) saveBitmapToCache(spriteUrl, b)
@@ -1231,7 +1231,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun downloadImage(artUrl: String, spriteUrl: String) {
         lifecycleScope.launch {
-            val artBitmap = loadCachedBitmap(artUrl) ?: withContext(Dispatchers.IO) {
+            val artBitmap = getPokemonBitmap(artUrl) ?: withContext(Dispatchers.IO) {
                 try {
                     val b = BitmapFactory.decodeStream(URL(artUrl).openStream())
                     if (b != null) saveBitmapToCache(artUrl, b)
@@ -1240,7 +1240,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             artBitmap?.let { imageView.setImageBitmap(it) }
 
-            val spriteBitmap = loadCachedBitmap(spriteUrl) ?: withContext(Dispatchers.IO) {
+            val spriteBitmap = getPokemonBitmap(spriteUrl) ?: withContext(Dispatchers.IO) {
                 try {
                     val b = BitmapFactory.decodeStream(URL(spriteUrl).openStream())
                     if (b != null) saveBitmapToCache(spriteUrl, b)
@@ -1287,7 +1287,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         container.addView(iv)
         lifecycleScope.launch {
-            val bitmap = loadCachedBitmap(spriteUrl) ?: withContext(Dispatchers.IO) {
+            val bitmap = getPokemonBitmap(spriteUrl) ?: withContext(Dispatchers.IO) {
                 try {
                     val b = BitmapFactory.decodeStream(URL(spriteUrl).openStream())
                     if (b != null) saveBitmapToCache(spriteUrl, b)
@@ -1321,11 +1321,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
             out.flush(); out.close()
         } catch (e: Exception) {}
-    }
-
-    private fun loadCachedBitmap(url: String): Bitmap? {
-        val file = getCacheFile(url)
-        return if (file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
     }
 
     override fun onInit(status: Int) {
@@ -1425,6 +1420,38 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         // 3. Show the popup anchored to the clicked view
         popupWindow.showAsDropDown(anchorView, 0, 10)
+    }
+
+    private fun loadCachedBitmap(url: String): Bitmap? {
+        val file = getCacheFile(url)
+        return if (file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
+    }
+
+    private fun getPokemonBitmap(url: String): Bitmap? {
+        //possible urls
+        //"https://www.serebii.net/pokedex-sv/icon/"+data+".png"]
+        //"https://www.serebii.net/pokemon/art/"+data+".png"]
+        val pokemonId = url.substringAfterLast("/").replace(".png","")
+        val isSprite = url.contains("icon")
+        val fileName = "$pokemonId.png"
+        val folders = if (isSprite) {
+            listOf("sprites") // Check sprites first if requested
+        } else {
+            listOf("art") // Check art first (high res) then sprites
+        }
+
+        for (folder in folders) {
+            try {
+                assets.open("$folder/$fileName").use { inputStream ->
+                    return BitmapFactory.decodeStream(inputStream)
+                }
+            } catch (e: Exception) {
+                // File not found in this folder, continue to next
+            }
+        }
+
+        // Fallback: If not in assets, use cached files
+        return loadCachedBitmap(url)
     }
 
     private fun speakOut(text: String) {
