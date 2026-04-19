@@ -47,7 +47,5 @@
             android:label="Team Browser"
             android:theme="@style/Theme.PMTU" />
     </application>
-    <service android:name=".HttpSyncService" android:foregroundServiceType="dataSync" />
-
 
 </manifest>
