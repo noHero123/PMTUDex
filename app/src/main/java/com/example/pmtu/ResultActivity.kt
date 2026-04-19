@@ -1262,13 +1262,12 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun updateEvolutionViews() {
         val own = viewModel.ownPokemon.value
-        if(own == null)
+        if(own == null || own.isTrainerPokemon)
         {
         evolutionsContainer.removeAllViews()
         preEvolutionsContainer.removeAllViews()
         return
         }
-        if (own.isTrainerPokemon) return
         lifecycleScope.launch(Dispatchers.IO) {
             val (evos, preEvos) = pokedexRepository.getEvolutions(own.id)
             withContext(Dispatchers.Main) {
