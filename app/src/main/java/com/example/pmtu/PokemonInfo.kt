@@ -15,6 +15,7 @@ data class PokemonInfo(
     val move2: String,
     val spriteUrl: String,
     val artUrl: String,
+    @Transient
     @IgnoredOnParcel
     var spriteBase64: String? = null,
     var nextPokedexIndex: Int = 0,

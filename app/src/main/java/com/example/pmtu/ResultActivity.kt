@@ -58,7 +58,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.URL
 import java.util.Locale
-
 class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var imageView: ImageView
     private lateinit var textView: TextView
@@ -96,6 +95,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private val detailsMap = mutableMapOf<String, Array<String>>()
 
+    private fun logging(message: String) {Log.d("ResultActivity", message)
+    }
     private fun loadDetailsFromCsv() {
         try {assets.open("details.csv").bufferedReader().useLines { lines ->
             lines.forEach { line ->
@@ -161,14 +162,26 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         viewModel.checkLanguageAndReset(currentLang, pokedexRepository)
         // 1. Re-hide system bars (sometimes they reappear after backgrounding)
         setupWindow()
-
+        logging("onResume")
+        logging(HttpSyncService.connectionStatus.toString())
+        logging(HttpSyncService.isServerEnabledByUser.toString())
         // 2. Check and restore connection
-        if (HttpSyncService.connectionStatus == HttpSyncService.Status.DISCONNECTED && HttpSyncService.isServerEnabledByUser) {
-            if (HttpSyncService.isServer) {
+        if (HttpSyncService.connectionStatus != HttpSyncService.Status.CONNECTED && HttpSyncService.isServerEnabledByUser) {
+            if (false && HttpSyncService.isServer) {
                 // Re-open server port
-                HttpSyncService.startServer()
-            } else {
+                //logging("start server")
+                //Toast.makeText(this, "to start server...", Toast.LENGTH_SHORT).show()
+                //HttpSyncService.startServer()
+                logging("connect to server")
                 // Try to reconnect to the last known Server IP
+                logging("try to reconnect")
+                HttpSyncService.lastConnectedIp?.let { ip ->
+                    HttpSyncService.startClient(ip)
+                }
+            } else {
+                logging("connect to server")
+                // Try to reconnect to the last known Server IP
+                logging("try to reconnect")
                 HttpSyncService.lastConnectedIp?.let { ip ->
                     HttpSyncService.startClient(ip)
                 }
@@ -210,6 +223,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         HttpSyncService.onDataReceived = { json ->
             lifecycleScope.launch {
                 try {
+                    logging("get data...")
+                    logging(json)
                     val data = Gson().fromJson(json, HttpSyncService.SyncData::class.java)
                     if (data.type == "SYNC") {
                         val receivedOwn = data.ownPokemonJson?.let { Gson().fromJson(it, PokemonInfo::class.java) }
@@ -220,8 +235,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             viewModel.setEnemyWeather(data.ownWeather)
                         } else {
                             viewModel.setEnemyPokemon(receivedOwn)
-                            viewModel.setOwnPokemon(receivedEnemy, null)
-                            viewModel.setOwnWeather(data.enemyWeather)
+                            //viewModel.setOwnPokemon(receivedEnemy, null)
+                            //viewModel.setOwnWeather(data.enemyWeather)
                             viewModel.setEnemyWeather(data.ownWeather)
                         }
                         viewModel.setUpdateUINoSync()
@@ -602,10 +617,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         mainContainer.addView(buttonContainer)
         rootLayout.addView(mainContainer)
         setContentView(rootLayout)
+        logging("finish stuff")
     }
 
     private fun syncViaHttp() {
         if (HttpSyncService.connectionStatus == HttpSyncService.Status.CONNECTED) {
+            logging("sync to " + HttpSyncService.lastConnectedIp)
+            //Toast.makeText(this, "Syncing..."+ HttpSyncService.lastConnectedIp, Toast.LENGTH_SHORT).show()
             HttpSyncService.sendData(HttpSyncService.SyncData(
                 type = "SYNC",
                 ownPokemonJson = Gson().toJson(viewModel.ownPokemon.value),
@@ -1254,7 +1272,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     viewModel.saveTeamData()
                     //updateTeamView()
                     //updateAddRemoveButton()
-                    viewModel.setUpdateUI()
+                    viewModel.setUpdateUINoSync()
                 }
             }
         }
@@ -1461,7 +1479,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     override fun onDestroy() {
         tts?.stop(); tts?.shutdown()
         HttpSyncService.removeStatusListener(statusListener)
-        HttpSyncService.stopAll()
+        HttpSyncService.stopByUser()
         super.onDestroy()
     }
 }

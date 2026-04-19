@@ -193,7 +193,7 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         rootLayout.addView(btLabel)
 
         statusTv = TextView(this).apply {
-            text = "Status: ${HttpSyncService.connectionStatus}"
+            text = "Status: ${HttpSyncService.connectionStatus} (${HttpSyncService.lastConnectedIp})"
             textSize = 16f
             setPadding(0, 0, 0, 32)
         }
@@ -217,7 +217,7 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply { bottomMargin = 16 }
             setOnClickListener {
-                HttpSyncService.stopAll()
+                HttpSyncService.stopByUser()
                 qrImageView.visibility = View.GONE
                 stopScanner()
                 Toast.makeText(this@SettingsActivity, "Sync Disconnected", Toast.LENGTH_SHORT).show()

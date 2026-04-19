@@ -76,8 +76,10 @@ object HttpSyncService {
 
     fun startServer() {
         isServer = true
+        stopByUser()
         isServerEnabledByUser = true
-        stopAll()
+        Log.e(TAG, "start server",)
+
         connectionStatus = Status.LISTENING
         statusMessage = "Waiting for connection..."
 
@@ -104,13 +106,16 @@ object HttpSyncService {
     fun startClient(ip: String) {
         lastConnectedIp = ip
         isServer = false
-        stopAll()
+        stopByUser()
         connectionStatus = Status.CONNECTING
         statusMessage = "Connecting to $ip..."
+        isServerEnabledByUser = true
 
         serviceScope.launch {
             try {
                 val socket = Socket()
+                socket.keepAlive = true  // Enable TCP keep-alive
+                socket.tcpNoDelay = true // Send data immediately (reduces lag for Pokémon sync)
                 socket.connect(InetSocketAddress(ip, PORT), 5000)
                 manageConnectedSocket(socket)
             } catch (e: Exception) {
@@ -122,9 +127,12 @@ object HttpSyncService {
     }
 
     private fun manageConnectedSocket(socket: Socket) {
+        Log.d(TAG, "Connected to ${socket.inetAddress.hostAddress}")
         clientSocket = socket
         connectionStatus = Status.CONNECTED
         statusMessage = "Connected"
+        val clientIp = socket.inetAddress.hostAddress
+        lastConnectedIp = clientIp
 
         serviceScope.launch {
             try {
@@ -143,6 +151,7 @@ object HttpSyncService {
 
     fun sendData(data: SyncData) {
         val json = Gson().toJson(data)
+        Log.d(TAG, "Sending data: $json")
         serviceScope.launch {
             try {
                 clientSocket?.getOutputStream()?.let {
@@ -155,7 +164,8 @@ object HttpSyncService {
         }
     }
 
-    fun stopAll() {
+    fun stopByUser() {
+        Log.e(TAG, "stop all",)
         serviceScope.coroutineContext.cancelChildren()
         isServerEnabledByUser = false
         try {
@@ -168,6 +178,23 @@ object HttpSyncService {
         clientSocket = null
         connectionStatus = Status.DISCONNECTED
         statusMessage = null
+    }
+    fun stopAll() {
+        Log.e(TAG, "stop all",)
+        serviceScope.coroutineContext.cancelChildren()
+        //isServerEnabledByUser = false
+        try {
+            serverSocket?.close()
+            clientSocket?.close()
+        } catch (e: Exception) {
+            Log.e(TAG, "Close error", e)
+        }
+        serverSocket = null
+        clientSocket = null
+        connectionStatus = Status.DISCONNECTED
+        statusMessage = null
+        startServer()
+
     }
 
     data class SyncData(

@@ -185,7 +185,7 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun loadTeamData() {
-        viewModelScope.launch(Dispatchers.IO) {
+        //viewModelScope.launch(Dispatchers.IO) {
             try {
                 val file = File(getApplication<Application>().filesDir, TEAM_FILE_NAME)
                 if (file.exists()) {
@@ -214,11 +214,12 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
                         }
                     }
                 }
+                Log.d("Storage", "Loaded team data")
                 setUpdateUINoSync()
             } catch (e: Exception) {
                 Log.e("Storage", "Error loading team data", e)
             }
-        }
+        //}
     }
 
     fun setTeam(newList: Array<PokemonInfo?>) {
