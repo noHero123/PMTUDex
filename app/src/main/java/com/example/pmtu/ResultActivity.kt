@@ -77,6 +77,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var preEvolutionsContainer: LinearLayout
     private lateinit var movesLayout: LinearLayout
     private lateinit var settingsButton: ImageView
+    private lateinit var connectionCountTv: TextView
     
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
@@ -116,12 +117,17 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private val statusListener = { status: HttpSyncService.Status, _: String? ->
-        if (status == HttpSyncService.Status.CONNECTED) {
-            // When coming from background, this will trigger
-            // as soon as the socket handshake is successful
+    private val statusListener = { status: P2PSyncService.Status, _: String? ->
+        runOnUiThread {
+            if (::connectionCountTv.isInitialized) {
+                connectionCountTv.visibility = if (P2PSyncService.isServerEnabledByUser) View.VISIBLE else View.GONE
+                connectionCountTv.text = "Connections: ${P2PSyncService.activeConnections}"
+            }
+        }
+        if (status == P2PSyncService.Status.CONNECTED) {
             lifecycleScope.launch {
-                syncViaHttp()
+                logging("status listener " + status.toString())
+                syncViaP2P()
             }
         }
     }
@@ -162,34 +168,22 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         viewModel.checkLanguageAndReset(currentLang, pokedexRepository)
         // 1. Re-hide system bars (sometimes they reappear after backgrounding)
         setupWindow()
-        logging("onResume")
-        logging(HttpSyncService.connectionStatus.toString())
-        logging(HttpSyncService.isServerEnabledByUser.toString())
+        logging("onResume " + P2PSyncService.connectionStatus.toString() + " "+P2PSyncService.isServerEnabledByUser.toString())
         // 2. Check and restore connection
-        if (HttpSyncService.connectionStatus != HttpSyncService.Status.CONNECTED && HttpSyncService.isServerEnabledByUser) {
-            if (false && HttpSyncService.isServer) {
-                // Re-open server port
-                //logging("start server")
-                //Toast.makeText(this, "to start server...", Toast.LENGTH_SHORT).show()
-                //HttpSyncService.startServer()
-                logging("connect to server")
-                // Try to reconnect to the last known Server IP
-                logging("try to reconnect")
-                HttpSyncService.lastConnectedIp?.let { ip ->
-                    HttpSyncService.startClient(ip)
-                }
-            } else {
-                logging("connect to server")
-                // Try to reconnect to the last known Server IP
-                logging("try to reconnect")
-                HttpSyncService.lastConnectedIp?.let { ip ->
-                    HttpSyncService.startClient(ip)
-                }
-            }
+        if (P2PSyncService.connectionStatus != P2PSyncService.Status.CONNECTED && P2PSyncService.isServerEnabledByUser) {
+            logging("connect to peer")
+            // Try to reconnect to the last known Peer IP
+            logging("try to reconnect")
+            P2PSyncService.reconnect()
         }
 
         // 3. Force a UI refresh and sync to ensure data is up to date
         viewModel.setUpdateUI()
+
+        if (::connectionCountTv.isInitialized) {
+            connectionCountTv.visibility = if (P2PSyncService.isServerEnabledByUser) View.VISIBLE else View.GONE
+            connectionCountTv.text = "Connections: ${P2PSyncService.activeConnections}"
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -202,7 +196,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         uiMapper = PokemonUiMapper(this)
 
         setupWindow()
-        setupHttpSync()
+        setupP2PSync()
         setupUI()
         observeViewModel()
         loadDetailsFromCsv()
@@ -219,34 +213,40 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
-    private fun setupHttpSync() {
-        HttpSyncService.onDataReceived = { json ->
+    private fun setupP2PSync() {
+        P2PSyncService.onDataReceived = { json ->
             lifecycleScope.launch {
                 try {
                     logging("get data...")
                     logging(json)
-                    val data = Gson().fromJson(json, HttpSyncService.SyncData::class.java)
-                    if (data.type == "SYNC") {
-                        val receivedOwn = data.ownPokemonJson?.let { Gson().fromJson(it, PokemonInfo::class.java) }
-                        val receivedEnemy = data.enemyPokemonJson?.let { Gson().fromJson(it, PokemonInfo::class.java) }
-                        
-                        if (HttpSyncService.isServer) {
-                            viewModel.setEnemyPokemon(receivedOwn)
-                            viewModel.setEnemyWeather(data.ownWeather)
-                        } else {
-                            viewModel.setEnemyPokemon(receivedOwn)
-                            //viewModel.setOwnPokemon(receivedEnemy, null)
-                            //viewModel.setOwnWeather(data.enemyWeather)
-                            viewModel.setEnemyWeather(data.ownWeather)
+                    val data = Gson().fromJson(json, P2PSyncService.SyncData::class.java)
+                    
+                    when (data.type) {
+                        "HANDSHAKE" -> {
+                            logging("Received handshake, sending first sync")
+                            syncViaP2P()
                         }
-                        viewModel.setUpdateUINoSync()
+                        "OK" -> {
+                            // Handled by service internal ACK logic if needed
+                        }
+                        "SYNC" -> {
+                            val receivedOwn = data.ownPokemonJson?.let { Gson().fromJson(it, PokemonInfo::class.java) }
+                            
+                            viewModel.setEnemyPokemon(receivedOwn)
+                            viewModel.setEnemyWeather(data.ownWeather)
+                            viewModel.setUpdateUINoSync()
+                            
+                            // Send OK back to acknowledge receipt
+                            P2PSyncService.sendOK()
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("SYNC", "Error parsing received data", e)
                 }
             }
         }
-        HttpSyncService.addStatusListener(statusListener)
+        P2PSyncService.removeStatusListener(statusListener)
+        P2PSyncService.addStatusListener(statusListener)
     }
 
     private fun observeViewModel() {
@@ -257,7 +257,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
                         updateEnemySprite(viewModel.enemyPokemon.value?.spriteUrl ?: "")
                         refreshUI()
-                        syncViaHttp()
+                        syncViaP2P()
                     }
                 }
                 launch {
@@ -273,38 +273,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             val artUrl = if (p.artUrl.isNotEmpty()) p.artUrl else "https://www.serebii.net/pokemon/art/${p.id}.png"
                             downloadImage(artUrl, p.spriteUrl)
                         }
-                        //refreshUI()
-                        //syncViaHttp()
-                    }
-                }
-                launch {
-                    viewModel.enemyPokemon.collectLatest { pokemon ->
-                        //updateEnemySprite(pokemon?.spriteUrl ?: "")
-                        //refreshUI()
-                        //syncViaHttp()
-                    }
-                }
-                launch {
-                    viewModel.teamPokemon.collectLatest {
-                        //refreshUI()
-                        //syncViaHttp()
-                    }
-                }
-                launch {
-                    viewModel.currentTeamIndex.collectLatest {
-                        //refreshUI()
-                        //syncViaHttp()
-                    }
-                }
-                launch {
-                    viewModel.ownWeather.collectLatest { 
-                        //refreshUI()
-                        //syncViaHttp()
-                    }
-                }
-                launch {
-                    viewModel.enemyWeather.collectLatest { 
-                        //refreshUI()
                     }
                 }
             }
@@ -325,8 +293,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun processScanResult(scannedText: String) {
         when (val result = scanHandler.handleScan(scannedText, this)) {
             is ScanHandler.ScanResult.Connect -> {
-                HttpSyncService.startClient(result.ip)
-                Toast.makeText(this, "Connecting to Server at ${result.ip}...", Toast.LENGTH_SHORT).show()
+                P2PSyncService.startClient(result.ip)
+                Toast.makeText(this, "Connecting to Peer at ${result.ip}...", Toast.LENGTH_SHORT).show()
             }
             is ScanHandler.ScanResult.Pokemon -> {
                 val spriteUrl = "https://www.serebii.net/pokedex-sv/icon/${result.number}.png"
@@ -386,6 +354,15 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         topBar.addView(settingsButton)
         mainContainer.addView(topBar)
+
+        connectionCountTv = TextView(this).apply {
+            textSize = 14f
+            setTextColor(Color.CYAN)
+            setPadding(64, 0, 0, 0)
+            visibility = if (P2PSyncService.isServerEnabledByUser) View.VISIBLE else View.GONE
+            text = "Connections: ${P2PSyncService.activeConnections}"
+        }
+        mainContainer.addView(connectionCountTv)
 
         // Team
         teamContainer = LinearLayout(this).apply {
@@ -605,9 +582,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             setOnClickListener {
                 viewModel.switchWithEnemy()
                 viewModel.setUpdateUI()
-                if (viewModel.enemyPokemon.value != null) {
-                    //syncViaHttp()
-                }
             }
         }
         enemyLayout.addView(enemyInfoContainer)
@@ -620,11 +594,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         logging("finish stuff")
     }
 
-    private fun syncViaHttp() {
-        if (HttpSyncService.connectionStatus == HttpSyncService.Status.CONNECTED) {
-            logging("sync to " + HttpSyncService.lastConnectedIp)
-            //Toast.makeText(this, "Syncing..."+ HttpSyncService.lastConnectedIp, Toast.LENGTH_SHORT).show()
-            HttpSyncService.sendData(HttpSyncService.SyncData(
+    private fun syncViaP2P() {
+        if (P2PSyncService.connectionStatus == P2PSyncService.Status.CONNECTED) {
+            logging("sync to " + P2PSyncService.lastConnectedIp)
+            P2PSyncService.sendData(P2PSyncService.SyncData(
                 type = "SYNC",
                 ownPokemonJson = Gson().toJson(viewModel.ownPokemon.value),
                 enemyPokemonJson = Gson().toJson(viewModel.enemyPokemon.value),
@@ -869,10 +842,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             colorFilter = if (!pokemon.isTeraActivated) ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) }) else null
             setOnClickListener {
                 pokemon.isTeraActivated = !pokemon.isTeraActivated
-                //refreshMoves()
                 viewModel.setUpdateUI()
                 viewModel.saveTeamData()
-                //syncViaHttp()
             }
         }
         row.addView(teraIv)
@@ -943,7 +914,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     //normal items
                     refreshMoves()
                     viewModel.saveTeamData()
-                    syncViaHttp()
+                    syncViaP2P()
                 }
             }
         }
@@ -963,7 +934,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             layoutParams = LinearLayout.LayoutParams(80, 80).apply { leftMargin = 32 }
             setOnClickListener {
                 onClick()
-                syncViaHttp()
+                syncViaP2P()
             }
         }
         row.addView(deleteIv)
@@ -984,7 +955,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         showDice(false)
                         refreshMoves()
                         viewModel.saveTeamData()
-                        syncViaHttp()
+                        syncViaP2P()
                     }
                 }
                 diceContainer.addView(diceIv)
@@ -1056,7 +1027,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         own.isDynaActivated = !own.isDynaActivated
                         viewModel.saveTeamData()
                         viewModel.setUpdateUI()
-                        //syncViaHttp()
                     }
                 }
                 wrapper.addView(dynaIv)
@@ -1167,7 +1137,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             clearEnemyButton.visibility = View.GONE
             enemyTypesContainer.removeAllViews()
             enemyStatusContainer.removeAllViews()
-            //viewModel.setUpdateUI()
             return
         }
         enemyStatusContainer.removeAllViews()
@@ -1270,8 +1239,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     p.spriteBitmap = it
                     p.spriteBase64 = bitmapToBase64(it)
                     viewModel.saveTeamData()
-                    //updateTeamView()
-                    //updateAddRemoveButton()
                     viewModel.setUpdateUINoSync()
                 }
             }
@@ -1446,9 +1413,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun getPokemonBitmap(url: String): Bitmap? {
-        //possible urls
-        //"https://www.serebii.net/pokedex-sv/icon/"+data+".png"]
-        //"https://www.serebii.net/pokemon/art/"+data+".png"]
         val pokemonId = url.substringAfterLast("/").replace(".png","")
         val isSprite = url.contains("icon")
         val fileName = "$pokemonId.png"
@@ -1478,8 +1442,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     override fun onDestroy() {
         tts?.stop(); tts?.shutdown()
-        HttpSyncService.removeStatusListener(statusListener)
-        HttpSyncService.stopByUser()
+        P2PSyncService.removeStatusListener(statusListener)
+        P2PSyncService.stopService()
         super.onDestroy()
     }
 }

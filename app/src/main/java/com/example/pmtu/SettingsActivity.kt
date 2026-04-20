@@ -186,38 +186,38 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
 
         // Sync Section
         val btLabel = TextView(this).apply {
-            text = "HTTP Sync"
+            text = "P2P Sync"
             textSize = 18f
             setPadding(0, 0, 0, 16)
         }
         rootLayout.addView(btLabel)
 
         statusTv = TextView(this).apply {
-            text = "Status: ${HttpSyncService.connectionStatus} (${HttpSyncService.lastConnectedIp})"
+            text = "Status: ${P2PSyncService.connectionStatus} (${P2PSyncService.lastConnectedIp})"
             textSize = 16f
             setPadding(0, 0, 0, 32)
         }
         rootLayout.addView(statusTv)
 
         masterButton = Button(this).apply {
-            text = "Start Server (scan QR code with other devices)"
+            text = "Start Sync (scan QR code with other devices)"
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply { bottomMargin = 16 }
-            setOnClickListener { startServer() }
+            setOnClickListener { startSync() }
         }
         rootLayout.addView(masterButton)
 
         disconnectButton = Button(this).apply {
             text = "Disconnect Sync"
-            visibility = if (HttpSyncService.connectionStatus == HttpSyncService.Status.DISCONNECTED) View.GONE else View.VISIBLE
+            visibility = if (P2PSyncService.connectionStatus == P2PSyncService.Status.DISCONNECTED) View.GONE else View.VISIBLE
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply { bottomMargin = 16 }
             setOnClickListener {
-                HttpSyncService.stopByUser()
+                P2PSyncService.stopByUser()
                 qrImageView.visibility = View.GONE
                 stopScanner()
                 Toast.makeText(this@SettingsActivity, "Sync Disconnected", Toast.LENGTH_SHORT).show()
@@ -249,14 +249,33 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         setContentView(mainLayout)
         checkPermissions()
 
-        HttpSyncService.onStatusChanged = { status, message ->
+        P2PSyncService.onStatusChanged = { status, message ->
             runOnUiThread {
                 statusTv.text = if (message != null) "Status: $status ($message)" else "Status: $status"
-                disconnectButton.visibility = if (status == HttpSyncService.Status.DISCONNECTED) View.GONE else View.VISIBLE
-                if (status == HttpSyncService.Status.CONNECTED) {
+                disconnectButton.visibility = if (status == P2PSyncService.Status.DISCONNECTED) View.GONE else View.VISIBLE
+                if (P2PSyncService.isServerEnabledByUser) {
+                    showQRCode()
+                } else {
                     qrImageView.visibility = View.GONE
-                    stopScanner()
                 }
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (P2PSyncService.isServerEnabledByUser) {
+            showQRCode()
+        }
+    }
+
+    private fun showQRCode() {
+        val ip = P2PSyncService.getLocalIpAddress(this)
+        if (ip != null) {
+            val bitmap = generateQRCode("pmtu_connect$ip")
+            if (bitmap != null) {
+                qrImageView.setImageBitmap(bitmap)
+                qrImageView.visibility = View.VISIBLE
             }
         }
     }
@@ -274,20 +293,16 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         }
     }
 
-    private fun startServer() {
-        val ip = HttpSyncService.getLocalIpAddress(this)
+    private fun startSync() {
+        val ip = P2PSyncService.getLocalIpAddress(this)
         if (ip == null) {
             Toast.makeText(this, "Connect to WiFi first", Toast.LENGTH_SHORT).show()
             return
         }
         
-        HttpSyncService.startServer()
-        val bitmap = generateQRCode("pmtu_connect$ip")
-        if (bitmap != null) {
-            qrImageView.setImageBitmap(bitmap)
-            qrImageView.visibility = View.VISIBLE
-        }
-        val toast = Toast.makeText(this, "Server started. Scan the QR code with the other device.", Toast.LENGTH_LONG)
+        P2PSyncService.startService()
+        showQRCode()
+        val toast = Toast.makeText(this, "Sync started. Scan the QR code with other devices.", Toast.LENGTH_LONG)
         toast.setGravity(Gravity.TOP, 0, 0)
         toast.show()
 
