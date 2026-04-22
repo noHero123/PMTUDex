@@ -91,6 +91,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var isSelectingSlot = false
     private var fightOpponentIp: String? = null
     private var isFightOngoing = false
+    private var fightInvitationDialog: AlertDialog? = null
 
     private val viewModel: ResultViewModel by viewModels()
     private lateinit var pokedexRepository: PokedexRepository
@@ -180,7 +181,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         setupWindow()
         logging("onResume " + P2PSyncService.connectionStatus.toString() + " "+P2PSyncService.isServerEnabledByUser.toString())
         // 2. Check and restore connection
-        if (P2PSyncService.connectionStatus != P2PSyncService.Status.CONNECTED && P2PSyncService.isServerEnabledByUser) {
+        if (P2PSyncService.connectionStatus != P2PSyncService.Status.CONNECTED && P2PSyncService.isServerEnabledByUser && !P2PSyncService.isPending()) {
             logging("connect to peer")
             // Try to reconnect to the last known Peer IP
             logging("try to reconnect")
@@ -257,6 +258,12 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             }
                         }
                         "FIGHT_START" -> {
+                            // AUTO-CLOSE logic: If anyone starts a fight, we close the invitation dialog
+                            runOnUiThread {
+                                fightInvitationDialog?.dismiss()
+                                fightInvitationDialog = null
+                            }
+
                             if (P2PSyncService.isSameIp(data.targetIp, P2PSyncService.localIp)) {
                                 isFightOngoing = true
                                 fightOpponentIp = data.sourceIp
@@ -294,7 +301,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun showFightInvitation(senderIp: String, senderName: String) {
         runOnUiThread {
-            AlertDialog.Builder(this)
+            // Dismiss any existing dialog first to be safe
+            fightInvitationDialog?.dismiss()
+
+            fightInvitationDialog = AlertDialog.Builder(this)
                 .setTitle("Fight Request")
                 .setMessage("$senderName wants to fight. Join?")
                 .setPositiveButton("Yes") { _, _ ->
@@ -303,10 +313,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     P2PSyncService.sendDataToPeer(senderIp, P2PSyncService.SyncData(type = "FIGHT_JOIN_REQUEST", sourceName = myName))
                 }
                 .setNegativeButton("No", null)
+                .setOnDismissListener { fightInvitationDialog = null } // Clear reference when closed
                 .show()
         }
     }
-
     private fun acceptFight(opponentIp: String) {
         isFightOngoing = true
         fightOpponentIp = opponentIp

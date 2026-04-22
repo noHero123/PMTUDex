@@ -18,6 +18,12 @@ object P2PSyncService {
     var onPeerDisconnected: ((String) -> Unit)? = null
 
     private val activePeers = ConcurrentHashMap<String, Socket>()
+
+    // Tracks IPs currently being connected to: Map<IP, TimestampMillis>
+    private val pendingConnections = ConcurrentHashMap<String, Long>()
+    private var isStartsPending: Boolean = false
+
+    private var monitoringJob: Job? = null
     private var _localIp: String? = null
     val localIp: String? get() {
         if (_localIp == null) {
@@ -112,6 +118,8 @@ object P2PSyncService {
         if (serverSocket == null) {
             _localIp = getIPAddress()
             startListening()
+            Log.d(TAG,"start heartbeat")
+            startConnectionMonitoring()
         }
     }
 
@@ -145,11 +153,47 @@ object P2PSyncService {
     }
 
     fun connectToPeer(ip: String) {
-        if (isSameIp(ip, localIp) || activePeers.keys().asSequence().any { isSameIp(it, ip) }) {
-            Log.d(TAG, "Connect skipped: $ip is self or already connected")
+        // 1. Check if it's our own IP
+        if (isSameIp(ip, localIp)) {
+            Log.d(TAG, "Connect skipped: $ip is self")
             return
         }
-        
+        isStartsPending = true
+        // 2. Check if already connected and if that connection is still alive
+        val existingSocket = activePeers.entries.find { isSameIp(it.key, ip) }?.value
+        if (existingSocket != null) {
+            val isAlive = try {
+                // Sending an empty message or checking connected status
+                // isConnected && !isClosed is not enough for stale sockets
+                !existingSocket.isClosed && existingSocket.isConnected &&
+                        InetAddress.getByName(ip).isReachable(1000)
+            } catch (e: Exception) {
+                false
+            }
+
+            if (isAlive) {
+                Log.d(TAG, "Connect skipped: $ip is already active and healthy")
+                isStartsPending = false
+                return
+            } else {
+                Log.d(TAG, "Existing connection to $ip is stale. Cleaning up and reconnecting.")
+                activePeers.remove(ip)
+                try { existingSocket.close() } catch (e: Exception) {}
+            }
+        }
+
+        // 3. Check if there is a pending connection attempt within the last 3 seconds
+        val now = System.currentTimeMillis()
+        val lastAttempt = pendingConnections[ip]
+        if (lastAttempt != null && (now - lastAttempt) < 3000) {
+            Log.d(TAG, "Connect skipped: Connection to $ip already in progress (started ${(now - lastAttempt)}ms ago)")
+            isStartsPending = false
+            return
+        }
+
+        // 4. Mark as pending
+        pendingConnections[ip] = now
+
         if (!serviceScope.isActive) {
             serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         }
@@ -160,28 +204,89 @@ object P2PSyncService {
                 val socket = Socket()
                 socket.keepAlive = true
                 socket.tcpNoDelay = true
+                // Connect timeout of 5 seconds
                 socket.connect(InetSocketAddress(ip, PORT), 5000)
                 manageConnectedSocket(socket, true)
             } catch (e: Exception) {
-                Log.e(TAG, "Connection error to $ip", e)
+                Log.e(TAG, "Connection error to $ip: ${e.message}")
+            } finally {
+                // 5. Remove from pending list once the attempt is finished
+                pendingConnections.remove(ip)
+            }
+        }
+        isStartsPending = false
+    }
+
+    private fun startConnectionMonitoring() {
+        monitoringJob?.cancel() // Ensure only one monitor runs
+        Log.d(TAG, "heartbeat " + activePeers.size)
+        monitoringJob = serviceScope.launch {
+            while (isActive) {
+                delay(5000) // Wait 3 seconds
+
+                val deadPeers = mutableListOf<String>()
+
+                activePeers.forEach { (ip, socket) ->
+                    val isAlive = try {
+                        // Check if socket is open and host is reachable via ICMP/Port 7
+                        !socket.isClosed &&
+                                socket.isConnected &&
+                                InetAddress.getByName(ip).isReachable(1000)
+                    } catch (e: Exception) {
+                        false
+                    }
+
+                    if (!isAlive) {
+                        deadPeers.add(ip)
+                    }
+                }
+
+                if (deadPeers.isNotEmpty()) {
+                    deadPeers.forEach { ip ->
+                        Log.d(TAG, "Monitor detected dead connection: $ip. Cleaning up.")
+                        val socket = activePeers.remove(ip)
+                        try { socket?.close() } catch (e: Exception) {}
+                        onPeerDisconnected?.invoke(ip)
+                    }
+                    updateStatus()
+                }
             }
         }
     }
 
     fun connectToPeers(ips: List<String>) {
-        ips.forEach { connectToPeer(it) }
+        val sortedIps = ips.sorted()
+        var ipsToConnect = mutableListOf<String>()
+        run breaking@{
+            sortedIps.forEach {
+                if (isSameIp(it, localIp)) {
+                    return@breaking
+                }
+                ipsToConnect.add(it)
+            }
+        }
+        Log.d(TAG, "Connect to peers: $ipsToConnect")
+        //only connect to the ones in list before us
+        ipsToConnect.forEach {
+            connectToPeer(it)
+        }
     }
 
     private fun manageConnectedSocket(socket: Socket, isInitiator: Boolean) {
         val peerIp = socket.inetAddress.hostAddress ?: "unknown"
-        if (activePeers.containsKey(peerIp) || isSameIp(peerIp, localIp)) {
-            Log.d(TAG, "Duplicate or self connection from $peerIp, closing")
+        if (isSameIp(peerIp, localIp)) {
+            Log.d(TAG, "self connection from $peerIp, closing")
             socket.close()
             return
+        }
+        if (activePeers.containsKey(peerIp)) {
+            Log.d(TAG, "Duplicate connection from $peerIp, close the old one.")
+            activePeers[peerIp]!!.close()
         }
         
         activePeers[peerIp] = socket
         lastConnectedIp.add(peerIp)
+        Log.d(TAG, "New connection from $peerIp")
         updateStatus()
 
         // Handshake: Server sends its known peer list to the new client
@@ -238,7 +343,9 @@ object P2PSyncService {
     }
 
     private fun broadcastPeerDiscovery(newPeerIp: String) {
-        val discoveryMsg = SyncData("PEER_DISCOVERY", null, null, peerIps = listOf(newPeerIp))
+        //val discoveryMsg = SyncData("PEER_DISCOVERY", null, null, peerIps = listOf(newPeerIp))
+        val discoveryMsg = SyncData("PEER_DISCOVERY", null, null, peerIps = activePeers.keys().toList())
+
         val json = Gson().toJson(discoveryMsg)
         serviceScope.launch {
             activePeers.forEach { (ip, socket) ->
@@ -312,7 +419,10 @@ object P2PSyncService {
         } catch (e: Exception) {
             Log.e(TAG, "Close error", e)
         }
-        serverSocket = null
+        Log.e(TAG, "STOP SERVICE")
+        monitoringJob?.cancel()
+        serverSocket?.close()
+        activePeers.values.forEach { it.close() }
         activePeers.clear()
         updateStatus()
     }
@@ -352,6 +462,13 @@ object P2PSyncService {
         val n1 = ip1.substringAfterLast(":")
         val n2 = ip2.substringAfterLast(":")
         return n1 == n2
+    }
+
+    fun isPending(): Boolean {
+        //returns true if pending connections are not empty and not to old
+        //remove all old pendings first
+        pendingConnections.entries.removeIf { (_, timestamp) -> System.currentTimeMillis() - timestamp > 3000 }
+        return pendingConnections.isNotEmpty() || isStartsPending
     }
 
     data class SyncData(

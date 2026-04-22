@@ -186,15 +186,8 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         rootLayout.addView(browseTeamsButton)
 
         // Sync Section
-        val btLabel = TextView(this).apply {
-            text = "P2P Sync"
-            textSize = 18f
-            setPadding(0, 0, 0, 16)
-        }
-        rootLayout.addView(btLabel)
-
         statusTv = TextView(this).apply {
-            text = "Status: ${P2PSyncService.connectionStatus} (${P2PSyncService.lastConnectedIp})"
+            text = "P2P Sync ${P2PSyncService.connectionStatus} (${P2PSyncService.lastConnectedIp})"
             textSize = 16f
             setPadding(0, 0, 0, 32)
         }
@@ -219,6 +212,10 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply { bottomMargin = 16 }
+
+            // Set initial visibility based on state
+            visibility = if (P2PSyncService.isServerEnabledByUser) View.GONE else View.VISIBLE
+
             setOnClickListener { startSync() }
         }
         rootLayout.addView(masterButton)
@@ -265,8 +262,16 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
 
         P2PSyncService.onStatusChanged = { status, message ->
             runOnUiThread {
-                statusTv.text = if (message != null) "Status: $status ($message)" else "Status: $status"
+                // 1. Update status text
+                statusTv.text = if (message != null) "P2P Sync: $status ($message)" else "P2P Sync: $status"
+
+                // 2. Toggle Disconnect button visibility
                 disconnectButton.visibility = if (status == P2PSyncService.Status.DISCONNECTED) View.GONE else View.VISIBLE
+
+                // 3. Toggle Start Sync button visibility based on whether the server is running
+                masterButton?.visibility = if (P2PSyncService.isServerEnabledByUser) View.GONE else View.VISIBLE
+
+                // 4. Handle QR Code visibility
                 if (P2PSyncService.isServerEnabledByUser) {
                     showQRCode()
                 } else {
@@ -350,7 +355,6 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         P2PSyncService.startService()
         showQRCode()
         val toast = Toast.makeText(this, "Sync started. Scan the QR code with other devices.", Toast.LENGTH_LONG)
-        toast.setGravity(Gravity.TOP, 0, 0)
         toast.show()
 
     }
