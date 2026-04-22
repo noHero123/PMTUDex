@@ -247,11 +247,12 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         }
                         "FIGHT_REQUEST" -> {
                             if (!isFightOngoing) {
-                                showFightInvitation(senderIp)
+                                showFightInvitation(senderIp, data.sourceName ?: senderIp)
                             }
                         }
                         "FIGHT_JOIN_REQUEST" -> {
                             if (!isFightOngoing) {
+                                Toast.makeText(this@ResultActivity, "${data.sourceName ?: senderIp} wants to fight!", Toast.LENGTH_SHORT).show()
                                 acceptFight(senderIp)
                             }
                         }
@@ -268,7 +269,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             }
                         }
                         "FIGHT_END" -> {
-                            if (P2PSyncService.isSameIp(data.targetIp, P2PSyncService.localIp) ||
+                            if (P2PSyncService.isSameIp(data.targetIp, P2PSyncService.localIp) || 
                                 P2PSyncService.isSameIp(data.sourceIp, P2PSyncService.localIp)) {
                                 resetFightState()
                             }
@@ -291,13 +292,15 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         P2PSyncService.addStatusListener(statusListener)
     }
 
-    private fun showFightInvitation(senderIp: String) {
+    private fun showFightInvitation(senderIp: String, senderName: String) {
         runOnUiThread {
             AlertDialog.Builder(this)
                 .setTitle("Fight Request")
-                .setMessage("Peer at $senderIp wants to fight. Join?")
+                .setMessage("$senderName wants to fight. Join?")
                 .setPositiveButton("Yes") { _, _ ->
-                    P2PSyncService.sendDataToPeer(senderIp, P2PSyncService.SyncData(type = "FIGHT_JOIN_REQUEST"))
+                    val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+                    val myName = prefs.getString("trainer_name", "Trainer")
+                    P2PSyncService.sendDataToPeer(senderIp, P2PSyncService.SyncData(type = "FIGHT_JOIN_REQUEST", sourceName = myName))
                 }
                 .setNegativeButton("No", null)
                 .show()
@@ -701,7 +704,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun requestFight() {
-        P2PSyncService.broadcastData(P2PSyncService.SyncData(type = "FIGHT_REQUEST"))
+        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val name = prefs.getString("trainer_name", "Trainer")
+        P2PSyncService.broadcastData(P2PSyncService.SyncData(type = "FIGHT_REQUEST", sourceName = name))
         Toast.makeText(this, "Fight request sent!", Toast.LENGTH_SHORT).show()
     }
 

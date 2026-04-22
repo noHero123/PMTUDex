@@ -32,6 +32,7 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
     private lateinit var qrImageView: ImageView
     private var scannerView: ZXingScannerView? = null
     private lateinit var rootLayout: LinearLayout
+    private lateinit var trainerNameTv: TextView
 
     private val SAVED_TEAMS_FILE = "saved_teams.json"
     private val TEAM_DATA_FILE = "team_data.json"
@@ -199,6 +200,19 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         }
         rootLayout.addView(statusTv)
 
+        // Trainer Name Section
+        val trainerName = getOrCreateTrainerName(prefs)
+        trainerNameTv = TextView(this).apply {
+            text = "Your Trainer Name: $trainerName"
+            textSize = 20f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, 0, 0, 16)
+            setOnClickListener {
+                showRenameDialog(prefs)
+            }
+        }
+        rootLayout.addView(trainerNameTv)
+
         masterButton = Button(this).apply {
             text = "Start Sync (scan QR code with other devices)"
             layoutParams = LinearLayout.LayoutParams(
@@ -262,6 +276,39 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         }
     }
 
+    private fun getOrCreateTrainerName(prefs: android.content.SharedPreferences): String {
+        var name = prefs.getString("trainer_name", null)
+        if (name == null) {
+            try {
+                val names = assets.open("pokemon_trainer_names.txt").bufferedReader().readLines()
+                if (names.isNotEmpty()) {
+                    name = names.random()
+                    prefs.edit().putString("trainer_name", name).apply()
+                }
+            } catch (e: Exception) {
+                name = "Trainer"
+            }
+        }
+        return name ?: "Trainer"
+    }
+
+    private fun showRenameDialog(prefs: android.content.SharedPreferences) {
+        val input = EditText(this)
+        input.setText(prefs.getString("trainer_name", ""))
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Change Trainer Name")
+            .setView(input)
+            .setPositiveButton("OK") { _, _ ->
+                val newName = input.text.toString()
+                if (newName.isNotBlank()) {
+                    prefs.edit().putString("trainer_name", newName).apply()
+                    trainerNameTv.text = "Your Trainer Name: $newName"
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     override fun onResume() {
         super.onResume()
         if (P2PSyncService.isServerEnabledByUser) {
@@ -294,7 +341,7 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
     }
 
     private fun startSync() {
-        val ip = P2PSyncService.getLocalIpAddress(this)
+        val ip = P2PSyncService.getIPAddress()
         if (ip == null) {
             Toast.makeText(this, "Connect to WiFi first", Toast.LENGTH_SHORT).show()
             return

@@ -362,6 +362,7 @@ object P2PSyncService {
         var enemyWeather: String? = null,
         val peerIps: List<String>? = null,
         val targetIp: String? = null,
-        val sourceIp: String? = null
+        val sourceIp: String? = null,
+        val sourceName: String? = null
     )
 }
