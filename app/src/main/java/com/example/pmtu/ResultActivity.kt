@@ -463,7 +463,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
 
         fightButton = ImageView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(100, 100)
+
+            //layoutParams = LinearLayout.LayoutParams(150, 100)
             setPadding(0, 0, 16, 0)
             setOnClickListener {
                 if (isFightOngoing) {
@@ -473,6 +474,10 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 }
             }
         }
+        val dp150 = (50 * resources.displayMetrics.density).toInt()
+        val dp100 = (35 * resources.displayMetrics.density).toInt()
+        fightButton.layoutParams = LinearLayout.LayoutParams(dp150, dp100)
+
         syncInfoRow.addView(fightButton)
 
         connectionCountTv = TextView(this).apply {
