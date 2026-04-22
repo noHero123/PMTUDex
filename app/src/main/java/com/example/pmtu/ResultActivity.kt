@@ -1120,42 +1120,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             wrapper.addView(diceIv)
 
-            //Protect button
-            // Protection trigger:
-            val enemy = viewModel.enemyPokemon.value
-
-            var hasProtection = false
-            if(enemy!=null)
-                hasProtection = moveRepository.hasProtection(enemy,own, viewModel.enemyWeather.value, viewModel.ownWeather.value, pokedexRepository  )
-
-            if (hasProtection) {
-                val protectionIv = ImageView(this).apply {
-                    try {
-                        val bit = BitmapFactory.decodeStream(assets.open("move_symbols/Black/Protection 1.png"))
-                        setImageBitmap(bit)
-                    } catch (e: Exception) {
-                        // Fallback or log error if protection.png is missing
-                    }
-                    layoutParams = FrameLayout.LayoutParams(120, 120).apply {
-                        gravity = Gravity.CENTER_VERTICAL or Gravity.START
-                        leftMargin = 64
-                    }
-                    alpha = if (viewModel.enemyUsesProtect) 1.0f else 0.3f
-                    setOnClickListener {
-                        viewModel.enemyUsesProtect =  !viewModel.enemyUsesProtect
-                        viewModel.setUpdateUI()
-                    }
-                }
-                wrapper.addView(protectionIv)
-            }
-            else
-            {
-                if(viewModel.enemyUsesProtect)
-                {
-                    viewModel.enemyUsesProtect = false
-                }
-            }
-
             // DYNAMAX BALL
             if (own.isDynaAvailable && !own.isGigaDynaActivated && !pokedexRepository.isMega(own.id)) {
                 val dynaIv = ImageView(this).apply {
@@ -1287,6 +1251,41 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             return
         }
         enemyStatusContainer.removeAllViews()
+
+        //Protect button
+        // Protection trigger:
+        val enemy = viewModel.enemyPokemon.value
+        val own = viewModel.ownPokemon.value
+
+        var hasProtection = false
+        if(enemy!=null && own!=null)
+            hasProtection = moveRepository.hasProtection(enemy,own, viewModel.enemyWeather.value, viewModel.ownWeather.value, pokedexRepository  )
+
+        if (hasProtection) {
+            val protectionIv = ImageView(this).apply {
+                try {
+                    val bit = BitmapFactory.decodeStream(assets.open("move_symbols/Black/Protection 1.png"))
+                    setImageBitmap(bit)
+                } catch (e: Exception) {
+                    // Fallback or log error if protection.png is missing
+                }
+                layoutParams = LinearLayout.LayoutParams(120, 120).apply { bottomMargin = 8 }
+                alpha = if (viewModel.enemyUsesProtect) 1.0f else 0.3f
+                setOnClickListener {
+                    viewModel.enemyUsesProtect =  !viewModel.enemyUsesProtect
+                    viewModel.setUpdateUI()
+                }
+            }
+            enemyStatusContainer.addView(protectionIv)
+        }
+        else
+        {
+            if(viewModel.enemyUsesProtect)
+            {
+                viewModel.enemyUsesProtect = false
+            }
+        }
+
         viewModel.enemyWeather.value?.let { weather ->
             val weatherImagePath = "Field/$weather.png"
             val weatherEffectDescriptionName = "{WEATHER} $weather"
@@ -1297,7 +1296,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             }
             enemyStatusContainer.addView(weatherIv, 0)
         }
-        val enemy = viewModel.enemyPokemon.value
+
         // Status Condition
         enemy?.statusCondition?.let { status ->
             if (status.isNotEmpty()) {
