@@ -14,11 +14,17 @@ object P2PSyncService {
     private const val TAG = "P2PSyncService"
     private const val PORT = 8888
 
-    var onDataReceived: ((String) -> Unit)? = null
+    var onDataReceived: ((String, String) -> Unit)? = null // json, senderIp
+    var onPeerDisconnected: ((String) -> Unit)? = null
 
     private val activePeers = ConcurrentHashMap<String, Socket>()
-    private val selfPeerId: String = UUID.randomUUID().toString()
-    private var localIp: String? = null
+    private var _localIp: String? = null
+    val localIp: String? get() {
+        if (_localIp == null) {
+            _localIp = getIPAddress()
+        }
+        return _localIp
+    }
     
     var isServerEnabledByUser: Boolean = false
         private set
@@ -63,32 +69,59 @@ object P2PSyncService {
         }
 
     private var serverSocket: ServerSocket? = null
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    fun getIPAddress(): String? {
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            for (iface in interfaces.asSequence()) {
+                if (iface.isLoopback || !iface.isUp) continue
+                for (addr in iface.inetAddresses.asSequence()) {
+                    if (addr is Inet4Address && !addr.isLoopbackAddress) {
+                        return addr.hostAddress
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting IP", e)
+        }
+        return null
+    }
 
     fun getLocalIpAddress(context: Context): String? {
         val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
         @Suppress("DEPRECATION")
         val ip = wm.connectionInfo.ipAddress
-        localIp = if (ip == 0) null else String.format(
-            Locale.US,
-            "%d.%d.%d.%d",
-            ip and 0xff,
-            ip shr 8 and 0xff,
-            ip shr 16 and 0xff,
-            ip shr 24 and 0xff
-        )
-        return localIp
+        if (ip != 0) {
+            _localIp = String.format(
+                Locale.US,
+                "%d.%d.%d.%d",
+                ip and 0xff,
+                ip shr 8 and 0xff,
+                ip shr 16 and 0xff,
+                ip shr 24 and 0xff
+            )
+        } else {
+            _localIp = getIPAddress()
+        }
+        return _localIp
     }
 
     fun startService() {
-        if (isServerEnabledByUser) return
         isServerEnabledByUser = true
-        startListening()
+        if (serverSocket == null) {
+            _localIp = getIPAddress()
+            startListening()
+        }
     }
 
     private fun startListening() {
         connectionStatus = Status.LISTENING
         statusMessage = "Listening for peers..."
+
+        if (!serviceScope.isActive) {
+            serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        }
 
         serviceScope.launch {
             try {
@@ -105,15 +138,22 @@ object P2PSyncService {
                     statusMessage = "Server error: ${e.message}"
                     connectionStatus = Status.ERROR
                 }
+            } finally {
+                serverSocket = null
             }
         }
     }
 
     fun connectToPeer(ip: String) {
-        if (ip == localIp || activePeers.containsKey(ip)) {
+        if (isSameIp(ip, localIp) || activePeers.keys().asSequence().any { isSameIp(it, ip) }) {
             Log.d(TAG, "Connect skipped: $ip is self or already connected")
+            return
         }
         
+        if (!serviceScope.isActive) {
+            serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        }
+
         serviceScope.launch {
             try {
                 Log.d(TAG, "Connecting to peer: $ip")
@@ -134,7 +174,7 @@ object P2PSyncService {
 
     private fun manageConnectedSocket(socket: Socket, isInitiator: Boolean) {
         val peerIp = socket.inetAddress.hostAddress ?: "unknown"
-        if (activePeers.containsKey(peerIp) || peerIp == localIp) {
+        if (activePeers.containsKey(peerIp) || isSameIp(peerIp, localIp)) {
             Log.d(TAG, "Duplicate or self connection from $peerIp, closing")
             socket.close()
             return
@@ -159,7 +199,7 @@ object P2PSyncService {
                 while (isActive) {
                     val line = reader.readLine() ?: break
                     processIncomingInternalMessage(line, socket, isInitiator)
-                    onDataReceived?.invoke(line)
+                    onDataReceived?.invoke(line, peerIp)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Read error from $peerIp", e)
@@ -167,6 +207,7 @@ object P2PSyncService {
                 activePeers.remove(peerIp)
                 socket.close()
                 updateStatus()
+                onPeerDisconnected?.invoke(peerIp)
             }
         }
     }
@@ -177,9 +218,7 @@ object P2PSyncService {
             when (data.type) {
                 "HANDSHAKE" -> {
                     Log.d(TAG, "Received HANDSHAKE from ${sourceSocket.inetAddress.hostAddress}. Known peers: ${data.peerIps}")
-                    // Client received server's peer list. Connect to them.
                     data.peerIps?.let { connectToPeers(it) }
-                    // Respond with my own list of peers
                     if (wasInitiator) {
                         sendDataToSocket(sourceSocket, SyncData("PEER_LIST", null, null, peerIps = activePeers.keys().toList()))
                     }
@@ -203,7 +242,7 @@ object P2PSyncService {
         val json = Gson().toJson(discoveryMsg)
         serviceScope.launch {
             activePeers.forEach { (ip, socket) ->
-                if (ip != newPeerIp) {
+                if (!isSameIp(ip, newPeerIp)) {
                     try {
                         val writer = PrintWriter(socket.getOutputStream(), true)
                         writer.println(json)
@@ -224,6 +263,14 @@ object P2PSyncService {
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send message to ${socket.inetAddress.hostAddress}", e)
             }
+        }
+    }
+
+    fun sendDataToPeer(ip: String, data: SyncData) {
+        // Try to find the socket by matching IP (normalized)
+        val entry = activePeers.entries.find { isSameIp(it.key, ip) }
+        entry?.value?.let { socket ->
+            sendDataToSocket(socket, data)
         }
     }
 
@@ -258,7 +305,6 @@ object P2PSyncService {
 
 
     fun stopService() {
-        Log.d(TAG, "Stopping service with ${activePeers.size} peers")
         serviceScope.coroutineContext.cancelChildren()
         try {
             serverSocket?.close()
@@ -286,6 +332,7 @@ object P2PSyncService {
     fun reconnect()
     {
         stopService()
+        startService() // Ensure listener is restarted
         Log.d(TAG, "reconnecting to peers ")
         for (ip in lastConnectedIp) {
             Log.d(TAG, "log to peer $ip")
@@ -296,15 +343,25 @@ object P2PSyncService {
     fun sendData(data: SyncData) = broadcastData(data)
     fun sendOK() = broadcastData(SyncData("OK", null, null))
     
-    var lastConnectedIp: MutableList<String> = mutableListOf<String>()
+    var lastConnectedIp: MutableSet<String> = mutableSetOf<String>()
     var isServer: Boolean = true
+
+    fun isSameIp(ip1: String?, ip2: String?): Boolean {
+        if (ip1 == null || ip2 == null) return false
+        if (ip1 == ip2) return true
+        val n1 = ip1.substringAfterLast(":")
+        val n2 = ip2.substringAfterLast(":")
+        return n1 == n2
+    }
 
     data class SyncData(
         val type: String,
-        val ownPokemonJson: String?,
-        val enemyPokemonJson: String?,
+        val ownPokemonJson: String? = null,
+        val enemyPokemonJson: String? = null,
         var ownWeather: String? = null,
         var enemyWeather: String? = null,
-        val peerIps: List<String>? = null
+        val peerIps: List<String>? = null,
+        val targetIp: String? = null,
+        val sourceIp: String? = null
     )
 }

@@ -270,7 +270,7 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
     }
 
     private fun showQRCode() {
-        val ip = P2PSyncService.getLocalIpAddress(this)
+        val ip = P2PSyncService.getIPAddress()
         if (ip != null) {
             val bitmap = generateQRCode("pmtu_connect$ip")
             if (bitmap != null) {

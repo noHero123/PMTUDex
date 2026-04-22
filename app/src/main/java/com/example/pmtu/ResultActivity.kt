@@ -24,6 +24,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -77,7 +78,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var preEvolutionsContainer: LinearLayout
     private lateinit var movesLayout: LinearLayout
     private lateinit var settingsButton: ImageView
+    private lateinit var syncInfoRow: LinearLayout
     private lateinit var connectionCountTv: TextView
+    private lateinit var fightButton: ImageView
     
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
@@ -86,6 +89,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var currentDisableSpeakers: Boolean? = false
     
     private var isSelectingSlot = false
+    private var fightOpponentIp: String? = null
+    private var isFightOngoing = false
 
     private val viewModel: ResultViewModel by viewModels()
     private lateinit var pokedexRepository: PokedexRepository
@@ -119,15 +124,20 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private val statusListener = { status: P2PSyncService.Status, _: String? ->
         runOnUiThread {
+            if (::syncInfoRow.isInitialized) {
+                syncInfoRow.visibility = if (P2PSyncService.isServerEnabledByUser) View.VISIBLE else View.GONE
+            }
             if (::connectionCountTv.isInitialized) {
-                connectionCountTv.visibility = if (P2PSyncService.isServerEnabledByUser) View.VISIBLE else View.GONE
                 connectionCountTv.text = "Connections: ${P2PSyncService.activeConnections}"
             }
+            updateFightButton()
         }
         if (status == P2PSyncService.Status.CONNECTED) {
             lifecycleScope.launch {
                 logging("status listener " + status.toString())
-                syncViaP2P()
+                if (isFightOngoing && fightOpponentIp != null) {
+                    syncViaP2P()
+                }
             }
         }
     }
@@ -180,10 +190,13 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         // 3. Force a UI refresh and sync to ensure data is up to date
         viewModel.setUpdateUI()
 
+        if (::syncInfoRow.isInitialized) {
+            syncInfoRow.visibility = if (P2PSyncService.isServerEnabledByUser) View.VISIBLE else View.GONE
+        }
         if (::connectionCountTv.isInitialized) {
-            connectionCountTv.visibility = if (P2PSyncService.isServerEnabledByUser) View.VISIBLE else View.GONE
             connectionCountTv.text = "Connections: ${P2PSyncService.activeConnections}"
         }
+        updateFightButton()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -196,8 +209,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         uiMapper = PokemonUiMapper(this)
 
         setupWindow()
-        setupP2PSync()
         setupUI()
+        setupP2PSync()
         observeViewModel()
         loadDetailsFromCsv()
 
@@ -214,30 +227,51 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun setupP2PSync() {
-        P2PSyncService.onDataReceived = { json ->
+        P2PSyncService.onDataReceived = { json, senderIp ->
             lifecycleScope.launch {
                 try {
-                    logging("get data...")
-                    logging(json)
+                    logging("get data from $senderIp...")
                     val data = Gson().fromJson(json, P2PSyncService.SyncData::class.java)
                     
                     when (data.type) {
                         "HANDSHAKE" -> {
-                            logging("Received handshake, sending first sync")
-                            syncViaP2P()
-                        }
-                        "OK" -> {
-                            // Handled by service internal ACK logic if needed
                         }
                         "SYNC" -> {
-                            val receivedOwn = data.ownPokemonJson?.let { Gson().fromJson(it, PokemonInfo::class.java) }
-                            
-                            viewModel.setEnemyPokemon(receivedOwn)
-                            viewModel.setEnemyWeather(data.ownWeather)
-                            viewModel.setUpdateUINoSync()
-                            
-                            // Send OK back to acknowledge receipt
-                            P2PSyncService.sendOK()
+                            if (isFightOngoing && P2PSyncService.isSameIp(senderIp, fightOpponentIp)) {
+                                val receivedOwn = data.ownPokemonJson?.let { Gson().fromJson(it, PokemonInfo::class.java) }
+                                viewModel.setEnemyPokemon(receivedOwn)
+                                viewModel.setEnemyWeather(data.ownWeather)
+                                viewModel.setUpdateUINoSync()
+                                P2PSyncService.sendOK()
+                            }
+                        }
+                        "FIGHT_REQUEST" -> {
+                            if (!isFightOngoing) {
+                                showFightInvitation(senderIp)
+                            }
+                        }
+                        "FIGHT_JOIN_REQUEST" -> {
+                            if (!isFightOngoing) {
+                                acceptFight(senderIp)
+                            }
+                        }
+                        "FIGHT_START" -> {
+                            if (P2PSyncService.isSameIp(data.targetIp, P2PSyncService.localIp)) {
+                                isFightOngoing = true
+                                fightOpponentIp = data.sourceIp
+                                syncViaP2P()
+                                updateFightButton()
+                            } else if (P2PSyncService.isSameIp(data.sourceIp, P2PSyncService.localIp)) {
+                                isFightOngoing = true
+                                fightOpponentIp = data.targetIp
+                                updateFightButton()
+                            }
+                        }
+                        "FIGHT_END" -> {
+                            if (P2PSyncService.isSameIp(data.targetIp, P2PSyncService.localIp) ||
+                                P2PSyncService.isSameIp(data.sourceIp, P2PSyncService.localIp)) {
+                                resetFightState()
+                            }
                         }
                     }
                 } catch (e: Exception) {
@@ -245,8 +279,60 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 }
             }
         }
+        P2PSyncService.onPeerDisconnected = { ip ->
+            if (isFightOngoing && P2PSyncService.isSameIp(ip, fightOpponentIp)) {
+                runOnUiThread {
+                    Toast.makeText(this, "Opponent disconnected", Toast.LENGTH_SHORT).show()
+                    resetFightState()
+                }
+            }
+        }
         P2PSyncService.removeStatusListener(statusListener)
         P2PSyncService.addStatusListener(statusListener)
+    }
+
+    private fun showFightInvitation(senderIp: String) {
+        runOnUiThread {
+            AlertDialog.Builder(this)
+                .setTitle("Fight Request")
+                .setMessage("Peer at $senderIp wants to fight. Join?")
+                .setPositiveButton("Yes") { _, _ ->
+                    P2PSyncService.sendDataToPeer(senderIp, P2PSyncService.SyncData(type = "FIGHT_JOIN_REQUEST"))
+                }
+                .setNegativeButton("No", null)
+                .show()
+        }
+    }
+
+    private fun acceptFight(opponentIp: String) {
+        isFightOngoing = true
+        fightOpponentIp = opponentIp
+        P2PSyncService.broadcastData(P2PSyncService.SyncData(
+            type = "FIGHT_START",
+            targetIp = opponentIp,
+            sourceIp = P2PSyncService.localIp
+        ))
+        updateFightButton()
+        syncViaP2P()
+    }
+
+    private fun endFight() {
+        P2PSyncService.broadcastData(P2PSyncService.SyncData(
+            type = "FIGHT_END",
+            sourceIp = P2PSyncService.localIp,
+            targetIp = fightOpponentIp
+        ))
+        resetFightState()
+    }
+
+    private fun resetFightState() {
+        runOnUiThread {
+            isFightOngoing = false
+            fightOpponentIp = null
+            updateFightButton()
+            viewModel.setEnemyPokemon(null)
+            viewModel.setUpdateUI()
+        }
     }
 
     private fun observeViewModel() {
@@ -254,10 +340,11 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.updateUI.collectLatest {
-
                         updateEnemySprite(viewModel.enemyPokemon.value?.spriteUrl ?: "")
                         refreshUI()
-                        syncViaP2P()
+                        if (isFightOngoing && fightOpponentIp != null) {
+                            syncViaP2P()
+                        }
                     }
                 }
                 launch {
@@ -355,14 +442,33 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         topBar.addView(settingsButton)
         mainContainer.addView(topBar)
 
+        syncInfoRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(64, 0, 0, 0)
+            visibility = if (P2PSyncService.isServerEnabledByUser) View.VISIBLE else View.GONE
+        }
+
+        fightButton = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(100, 100)
+            setPadding(0, 0, 16, 0)
+            setOnClickListener {
+                if (isFightOngoing) {
+                    endFight()
+                } else {
+                    requestFight()
+                }
+            }
+        }
+        syncInfoRow.addView(fightButton)
+
         connectionCountTv = TextView(this).apply {
             textSize = 14f
             setTextColor(Color.CYAN)
-            setPadding(64, 0, 0, 0)
-            visibility = if (P2PSyncService.isServerEnabledByUser) View.VISIBLE else View.GONE
             text = "Connections: ${P2PSyncService.activeConnections}"
         }
-        mainContainer.addView(connectionCountTv)
+        syncInfoRow.addView(connectionCountTv)
+        mainContainer.addView(syncInfoRow)
 
         // Team
         teamContainer = LinearLayout(this).apply {
@@ -594,10 +700,36 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         logging("finish stuff")
     }
 
+    private fun requestFight() {
+        P2PSyncService.broadcastData(P2PSyncService.SyncData(type = "FIGHT_REQUEST"))
+        Toast.makeText(this, "Fight request sent!", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun updateFightButton() {
+        runOnUiThread {
+            if (!::fightButton.isInitialized) return@runOnUiThread
+            if (P2PSyncService.activeConnections > 0) {
+                fightButton.visibility = View.VISIBLE
+                val assetName = if (isFightOngoing) "run.png" else "fight.png"
+                try {
+                    val inputStream = assets.open(assetName)
+                    val bitmap = BitmapFactory.decodeStream(inputStream)
+                    fightButton.setImageBitmap(bitmap)
+                } catch (e: Exception) {
+                    fightButton.setImageResource(if (isFightOngoing) android.R.drawable.ic_menu_close_clear_cancel else android.R.drawable.ic_menu_add)
+                }
+            } else {
+                fightButton.visibility = View.GONE
+            }
+        }
+    }
+
     private fun syncViaP2P() {
+        if (!isFightOngoing || fightOpponentIp == null) return
+
         if (P2PSyncService.connectionStatus == P2PSyncService.Status.CONNECTED) {
-            logging("sync to " + P2PSyncService.lastConnectedIp)
-            P2PSyncService.sendData(P2PSyncService.SyncData(
+            logging("sync to " + fightOpponentIp)
+            P2PSyncService.sendDataToPeer(fightOpponentIp!!, P2PSyncService.SyncData(
                 type = "SYNC",
                 ownPokemonJson = Gson().toJson(viewModel.ownPokemon.value),
                 enemyPokemonJson = Gson().toJson(viewModel.enemyPokemon.value),
@@ -914,7 +1046,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     //normal items
                     refreshMoves()
                     viewModel.saveTeamData()
-                    syncViaP2P()
+                    if (isFightOngoing && fightOpponentIp != null) syncViaP2P()
                 }
             }
         }
@@ -934,7 +1066,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             layoutParams = LinearLayout.LayoutParams(80, 80).apply { leftMargin = 32 }
             setOnClickListener {
                 onClick()
-                syncViaP2P()
+                if (isFightOngoing && fightOpponentIp != null) syncViaP2P()
             }
         }
         row.addView(deleteIv)
@@ -955,7 +1087,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         showDice(false)
                         refreshMoves()
                         viewModel.saveTeamData()
-                        syncViaP2P()
+                        if (isFightOngoing && fightOpponentIp != null) syncViaP2P()
                     }
                 }
                 diceContainer.addView(diceIv)
@@ -1323,8 +1455,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         {
             if(key.startsWith("B ") || key.startsWith("W ")) {
                 val splits = key.split(" ")
-                val new_key = splits[0]+" "+splits[1]
-                description = detailsMap[new_key.lowercase()]
+                val n_key = splits[0]+" "+splits[1]
+                description = detailsMap[n_key.lowercase()]
             }
         }
 
