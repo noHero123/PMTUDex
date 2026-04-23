@@ -19,6 +19,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,6 +43,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
     private var pendingTTS: String? = null
+    private var scanJob: Job? = null
+    private var downloadJob: Job? = null
 
     private val statusListener = { status: P2PSyncService.Status, _: String? ->
         runOnUiThread {
@@ -167,15 +170,15 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     viewManager.imageView.setImageResource(android.R.drawable.ic_menu_camera)
                 } else {
                     val artUrl = pokemon.artUrl.ifEmpty { "https://www.serebii.net/pokemon/art/${pokemon.id}.png" }
-                    // Try to load big picture (art) first from cache/assets
                     val artBitmap = imageManager.getPokemonBitmap(artUrl)
                     if (artBitmap != null) {
                         viewManager.imageView.setImageBitmap(artBitmap)
+                        downloadSpriteOnly(pokemon)
                     } else {
-                        // Fallback to sprite bitmap if available, or placeholder
+                        // Fallback to placeholder then download
                         uiMapper.updatePokemonImage(pokemon, viewManager.imageView, android.R.drawable.ic_menu_camera)
+                        downloadAllImages(pokemon)
                     }
-                    downloadImage(artUrl, pokemon.spriteUrl)
                 }
             }
         }
@@ -195,7 +198,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     fun get_pokedex(number: String, spriteUrl: String, artUrl: String) {
-        lifecycleScope.launch(Dispatchers.IO) {
+        scanJob?.cancel()
+        scanJob = lifecycleScope.launch(Dispatchers.IO) {
             pokedexRepository.findPokemonByNumber(number, spriteUrl, artUrl)?.let { info ->
                 withContext(Dispatchers.Main) {
                     val nextIndex = if (info.id == viewModel.lastPokemonId) viewModel.lastSelectedIndex else null
@@ -206,19 +210,28 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun downloadImage(artUrl: String, spriteUrl: String) {
-        lifecycleScope.launch {
-            // Download and display big picture
+    private fun downloadSpriteOnly(pokemon: PokemonInfo) {
+        downloadJob?.cancel()
+        downloadJob = lifecycleScope.launch {
+            imageManager.downloadImage(pokemon.spriteUrl)?.let { b ->
+                pokemon.spriteBitmap = b
+                pokemon.spriteBase64 = imageManager.bitmapToBase64(b)
+                viewModel.saveTeamData()
+                viewModel.setUpdateUINoSync()
+            }
+        }
+    }
+
+    private fun downloadAllImages(pokemon: PokemonInfo) {
+        downloadJob?.cancel()
+        downloadJob = lifecycleScope.launch {
+            val artUrl = pokemon.artUrl.ifEmpty { "https://www.serebii.net/pokemon/art/${pokemon.id}.png" }
             imageManager.downloadImage(artUrl)?.let { viewManager.imageView.setImageBitmap(it) }
-            
-            // Also download sprite for team view/sync
-            imageManager.downloadImage(spriteUrl)?.let { b ->
-                viewModel.ownPokemon.value?.let { p -> 
-                    p.spriteBitmap = b
-                    p.spriteBase64 = imageManager.bitmapToBase64(b)
-                    viewModel.saveTeamData()
-                    viewModel.setUpdateUINoSync()
-                } 
+            imageManager.downloadImage(pokemon.spriteUrl)?.let { b ->
+                pokemon.spriteBitmap = b
+                pokemon.spriteBase64 = imageManager.bitmapToBase64(b)
+                viewModel.saveTeamData()
+                viewModel.setUpdateUINoSync()
             }
         }
     }
