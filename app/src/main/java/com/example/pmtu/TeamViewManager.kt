@@ -30,7 +30,7 @@ class TeamViewManager(
         for (i in 0 until 6) {
             val slotContainer = FrameLayout(activity).apply {
                 layoutParams = LinearLayout.LayoutParams(120, 120).apply {
-                    setMargins(16, 0, 16, 0)
+                    setMargins(4, 0, 4, 0)
                 }
                 setBackgroundColor(if (currentIndex == i) Color.BLUE else Color.TRANSPARENT)
             }
