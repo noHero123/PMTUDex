@@ -1,6 +1,5 @@
 package com.example.pmtu
 
-import android.app.Activity
 import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
@@ -44,6 +43,8 @@ class PokemonViewManager(
     lateinit var fightButton: ImageView
     lateinit var syncInfoRow: LinearLayout
     lateinit var connectionCountTv: TextView
+
+    lateinit var enemyProtectView: ImageView
     lateinit var enemySpriteView: ImageView
     lateinit var clearEnemyButton: ImageView
     lateinit var enemyTypesContainer: LinearLayout
@@ -153,7 +154,7 @@ class PokemonViewManager(
             setSize(ViewGroup.LayoutParams.MATCH_PARENT, 600)
         }
         imageView = ImageView(activity).apply {
-            setImageResource(android.R.drawable.ic_menu_camera)
+            setImageBitmap(imageManager.getDefaultImage())
             setSize(600, 600)
             scaleType = ImageView.ScaleType.FIT_CENTER
         }
@@ -255,6 +256,9 @@ class PokemonViewManager(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
+        enemyProtectView = ImageView(activity).apply { setSize(120, 120) }
+        enemyInfoContainer.addView(enemyProtectView)
+
         enemyStatusContainer = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -270,6 +274,7 @@ class PokemonViewManager(
             setMargins(right = 8)
         }
         enemyInfoContainer.addView(enemyTypesContainer)
+
 
         enemySpriteView = ImageView(activity).apply { setSize(120, 120) }
         enemyInfoContainer.addView(enemySpriteView)
@@ -443,21 +448,31 @@ class PokemonViewManager(
             clearEnemyButton.visibility = View.GONE
             enemyTypesContainer.removeAllViews()
             enemyStatusContainer.removeAllViews()
+            enemyProtectView.setImageDrawable(null)
             return
         }
         enemyStatusContainer.removeAllViews()
         val enemy = viewModel.enemyPokemon.value
         val own = viewModel.ownPokemon.value
         if (enemy != null && own != null && moveRepository.hasProtection(enemy, own, viewModel.enemyWeather.value, viewModel.ownWeather.value, pokedexRepository)) {
-            val protIv = ImageView(activity).apply {
+            /*val protIv = ImageView(activity).apply {
                 setAssetImage("move_symbols/Black/Protection 1.png")
                 setSize(120, 120)
                 setMargins(bottom = 8)
                 alpha = if (viewModel.enemyUsesProtect) 1.0f else 0.3f
                 setOnClickListener { viewModel.enemyUsesProtect = !viewModel.enemyUsesProtect; viewModel.setUpdateUI() }
             }
-            enemyStatusContainer.addView(protIv)
-        } else { viewModel.enemyUsesProtect = false }
+            enemyStatusContainer.addView(protIv)*/
+            enemyProtectView.visibility= View.VISIBLE
+            enemyProtectView.setAssetImage("move_symbols/Black/Protection 1.png")
+            enemyProtectView.setMargins(bottom = 8)
+            enemyProtectView.setSize(120, 120)
+            enemyProtectView.alpha = if (viewModel.enemyUsesProtect) 1.0f else 0.3f
+            enemyProtectView.setOnClickListener { viewModel.enemyUsesProtect = !viewModel.enemyUsesProtect; viewModel.setUpdateUI() }
+
+        } else {
+            enemyProtectView.visibility= View.GONE
+            viewModel.enemyUsesProtect = false }
 
         viewModel.enemyWeather.value?.let { weather ->
             val path = "Field/$weather.png"
@@ -475,6 +490,7 @@ class PokemonViewManager(
                 val statusIv = ImageView(activity).apply {
                     setAssetImage(path)
                     setSize(80, 80)
+                    setMargins(bottom = 8)
                     setOnClickListener { showDetailPopup(status, this, path) }
                 }
                 enemyStatusContainer.addView(statusIv)

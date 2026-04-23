@@ -38,13 +38,14 @@
 "Rain", "RAIN", "Play the Rain Field Move card."
 "Renewal", "RENEWAL", "Play the Renewal Field Move card."
 "Safeguard", "SAFEGUARD", "Play the Safeguard Field Move card."
-"Sandstorm", "SANDSTORM", "Play the Sandstorm Field Move card."
+"Sandy", "SANDSTORM", "Play the Sandstorm Field Move card."
 "Spikes","SPIKES","Play the Spikes Field Move card."
 "Stealth Rock", "STEALTH ROCK", "Play the Stealth Rock Field Move card."
 "Sunny", "HARSH SUNLIGHT", "Play the Harsh Sunlight Field Move card."
 "Toxic Spikes", "TOXIC SPIKES", "Play the Toxic Spikes Field Move card."
 
 #### Additional effects
+"AdvDis 6", "ADVANTAGE DISADVANTAGE", "User rolls 1 extra attack die and discards the lowest result. And Opponent rolls 1 extra attack die and discards the highest result."
 "W Adv", "ADVANTAGE", "User rolls 1 extra attack die and discards the lowest result."
 "W DoubAdv","DOUBLE ADVANTAGE","User rolls 2 extra attack dice and discards the two lowest results."
 "W KO", "K.O. (Self)", "User faints at the end of the round."

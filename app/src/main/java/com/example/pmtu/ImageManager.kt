@@ -25,6 +25,13 @@ class ImageManager(private val context: Context) {
         }
     }
 
+    fun getDefaultImage(): Bitmap
+    {
+        context.assets.open("defaultpicture.png").use { inputStream ->
+            return BitmapFactory.decodeStream(inputStream)
+        }
+    }
+
     fun getPokemonBitmap(url: String): Bitmap? {
         val id = url.substringAfterLast("/").replace(".png", "")
         val isSprite = url.contains("icon")

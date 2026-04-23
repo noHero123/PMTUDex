@@ -167,7 +167,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         lifecycleScope.launch {
             viewModel.ownPokemon.collectLatest { pokemon ->
                 if (pokemon == null) {
-                    viewManager.imageView.setImageResource(android.R.drawable.ic_menu_camera)
+                    viewManager.imageView.setImageBitmap(imageManager.getDefaultImage())
                 } else {
                     val artUrl = pokemon.artUrl.ifEmpty { "https://www.serebii.net/pokemon/art/${pokemon.id}.png" }
                     val artBitmap = imageManager.getPokemonBitmap(artUrl)
