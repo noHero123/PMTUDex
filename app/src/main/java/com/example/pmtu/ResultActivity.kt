@@ -233,7 +233,9 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 try {
 
                     val data = Gson().fromJson(json, P2PSyncService.SyncData::class.java)
-                    logging("get "+data.type+" from $senderIp...")
+                    if (data.type != "PING") {
+                        logging("get " + data.type + " from $senderIp...")
+                    }
                     when (data.type) {
                         "HANDSHAKE" -> {
                             P2PSyncService.lastPongReceived[senderIp] = System.currentTimeMillis()

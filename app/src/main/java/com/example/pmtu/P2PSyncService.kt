@@ -239,7 +239,7 @@ object P2PSyncService {
         // Use the existing serviceScope to perform IO
         serviceScope.launch {
             activePeers.forEach { (ip, socket) ->
-                Log.d(TAG, "Pinging $ip")
+                //Log.d(TAG, "Pinging $ip")
                 try {
                     // We use a manual writer here to ensure we don't
                     // create 50 separate coroutines via sendDataToPeer
@@ -344,6 +344,7 @@ object P2PSyncService {
                 val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
                 while (isActive) {
                     val line = reader.readLine() ?: break
+                    retryCountMap.remove(peerIp)
                     lastPongReceived[peerIp] = System.currentTimeMillis()
                     processIncomingInternalMessage(line, socket, isInitiator)
                     onDataReceived?.invoke(line, peerIp)
@@ -464,6 +465,7 @@ object P2PSyncService {
 
 
     fun stopService() {
+        Log.d(TAG, "stopp p2p service...")
         serviceScope.coroutineContext.cancelChildren()
         try {
             serverSocket?.close()
@@ -474,8 +476,8 @@ object P2PSyncService {
         Log.e(TAG, "STOP SERVICE")
         monitoringJob?.cancel()
         serverSocket?.close()
+        serverSocket = null
         pendingConnections.clear()
-        activePeers.values.forEach { it.close() }
         activePeers.clear()
         updateStatus()
     }
@@ -526,7 +528,7 @@ object P2PSyncService {
     }
 
     data class SyncData(
-        val type: String, // "PING", "PONG", "SYNC", etc.
+        val type: String, // "PING", "PONG", "SYNC", "HANDSHAKE", "FIGHT_JOIN_REQUEST", et
         val ownPokemonJson: String? = null,
         val enemyPokemonJson: String? = null,
         var ownWeather: String? = null,
