@@ -149,7 +149,7 @@ class PokemonViewManager(
         }
         mainContainer.addView(diceContainer)
 
-        val imageEvoLayout = LinearLayout(activity).apply {
+        /*val imageEvoLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setSize(ViewGroup.LayoutParams.MATCH_PARENT, 600)
@@ -179,7 +179,51 @@ class PokemonViewManager(
             }
         }
         rootLayout.addView(preEvolutionsContainer)
-        rootLayout.addView(evolutionsContainer)
+        rootLayout.addView(evolutionsContainer)*/
+
+        // Find this section in your setupUI()
+        val imageEvoLayout = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setSize(ViewGroup.LayoutParams.MATCH_PARENT, 600) // This is the height we want to match
+        }
+
+// 1. Initialize Pre-Evolutions Container
+        preEvolutionsContainer = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            // Use weight 1.0f and height MATCH_PARENT to fill the 600dp row
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f).apply {
+                marginStart = 16
+            }
+        }
+
+// 2. Main Image
+        imageView = ImageView(activity).apply {
+            setImageBitmap(imageManager.getDefaultImage())
+            setSize(600, 600)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+
+// 3. Initialize Evolutions Container
+        evolutionsContainer = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            // Use weight 1.0f and height MATCH_PARENT to fill the 600dp row
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f).apply {
+                marginEnd = 16
+            }
+        }
+
+// 4. Add them ALL to imageEvoLayout in order: [Pre] [Main Sprite] [Post]
+        imageEvoLayout.addView(preEvolutionsContainer)
+        imageEvoLayout.addView(imageView)
+        imageEvoLayout.addView(evolutionsContainer)
+
+        mainContainer.addView(imageEvoLayout)
+
+
+        //#####################
 
         val pokedexRow = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -545,8 +589,54 @@ class PokemonViewManager(
 
     fun updateEvolutionViews() {
         val own = viewModel.ownPokemon.value
-        if (own == null || own.isTrainerPokemon) { evolutionsContainer.removeAllViews(); preEvolutionsContainer.removeAllViews(); return }
-        
+        if (own == null || own.isTrainerPokemon) {
+            evolutionsContainer.removeAllViews()
+            preEvolutionsContainer.removeAllViews()
+            return
+        }
+
+        val isEevee = own.id == "133"
+
+        evolutionJob?.cancel()
+        evolutionJob = activity.lifecycleScope.launch(Dispatchers.IO) {
+            val (evos, preEvos) = pokedexRepository.getEvolutions(own.id)
+
+            withContext(Dispatchers.Main) {
+                // Set height to 600 to match the main image height and center icons vertically
+                preEvolutionsContainer.layoutParams.height = 600
+                evolutionsContainer.layoutParams.height = 600
+
+                preEvolutionsContainer.gravity = Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL
+                evolutionsContainer.gravity = Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL
+
+                preEvolutionsContainer.removeAllViews()
+                evolutionsContainer.removeAllViews()
+
+                if (isEevee) {
+                    // Eevee Special Logic: Use both columns for its 8 evolutions (4 each)
+                    val half = evos.size / 2
+                    val leftList = evos.take(half)
+                    val rightList = evos.drop(half)
+
+                    leftList.forEach { addEvoSprite(it, preEvolutionsContainer) }
+                    rightList.forEach { addEvoSprite(it, evolutionsContainer) }
+                } else {
+                    // Normal Pokemon Logic
+                    evos.forEach { addEvoSprite(it, evolutionsContainer) }
+                    preEvos.forEach { addEvoSprite(it, preEvolutionsContainer) }
+                }
+            }
+        }
+    }
+
+    fun updateEvolutionViews2() {
+        val own = viewModel.ownPokemon.value
+        if (own == null || own.isTrainerPokemon) {
+            evolutionsContainer.removeAllViews();
+            preEvolutionsContainer.removeAllViews();
+            return
+        }
+
         evolutionJob?.cancel()
         evolutionJob = activity.lifecycleScope.launch(Dispatchers.IO) {
             val (evos, preEvos) = pokedexRepository.getEvolutions(own.id)
@@ -556,6 +646,8 @@ class PokemonViewManager(
                 preEvos.forEach { addEvoSprite(it, preEvolutionsContainer) }
             }
         }
+        //val isEevee = own.id == "133"
+        //val containerHeight = if (isEevee) ViewGroup.LayoutParams.WRAP_CONTENT else ViewGroup.LayoutParams.MATCH_PARENT
     }
 
     private fun addEvoSprite(number: String, container: LinearLayout) {
