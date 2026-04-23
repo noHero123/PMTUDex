@@ -15,6 +15,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.setPadding
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
@@ -232,31 +233,32 @@ class PokemonViewManager(
         movesLayout.addView(textView)
         mainContainer.addView(centerContainer)
 
-        val buttonContainer = LinearLayout(activity).apply {
+        //enemy info section
+        val enemySectionRow = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.BOTTOM
-            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(64, 0, 64, 128) }
+            gravity = Gravity.END
+            // Set margins to match your other rows
+            setMargins(64, 0, 64, 16)
+            setPadding(0, 0, 64, 0)
+            setSize(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
-        val buttonLayoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f)
-
-        val newScanButton = Button(activity).apply {
-            text = "New Scan"
-            layoutParams = buttonLayoutParams
-            setOnClickListener { onNewScanRequested() }
-        }
-        buttonContainer.addView(newScanButton)
-        buttonContainer.addView(View(activity).apply { setSize(32, 1) })
 
         val enemyLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            layoutParams = buttonLayoutParams
+            // Use WRAP_CONTENT instead of the shared weight-based buttonLayoutParams
+            setSize(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
+        //###################
         val enemyInfoContainer = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
+            setSize(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
-        enemyProtectView = ImageView(activity).apply { setSize(120, 120) }
+        enemyProtectView = ImageView(activity).apply {
+            setSize(120, 120)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
         enemyInfoContainer.addView(enemyProtectView)
 
         enemyStatusContainer = LinearLayout(activity).apply {
@@ -287,15 +289,32 @@ class PokemonViewManager(
             setOnClickListener { viewModel.clearEnemy(); viewModel.setUpdateUI() }
         }
         enemyInfoContainer.addView(clearEnemyButton)
+        enemyLayout.addView(enemyInfoContainer)
+        enemySectionRow.addView(enemyLayout)
+        mainContainer.addView(enemySectionRow)
 
+        //buttons on bottom
+        val buttonContainer = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.BOTTOM
+            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(64, 0, 64, 128) }
+        }
+        val buttonLayoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f)
+
+        val newScanButton = Button(activity).apply {
+            text = "New Scan"
+            layoutParams = buttonLayoutParams
+            setOnClickListener { onNewScanRequested() }
+        }
         val switchToEnemyButton = Button(activity).apply {
             text = "Switch to Enemy"
-            setSize(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            layoutParams = buttonLayoutParams
             setOnClickListener { viewModel.switchWithEnemy(); viewModel.setUpdateUI() }
         }
-        enemyLayout.addView(enemyInfoContainer)
-        enemyLayout.addView(switchToEnemyButton)
-        buttonContainer.addView(enemyLayout)
+
+        buttonContainer.addView(newScanButton)
+        buttonContainer.addView(View(activity).apply { setSize(32, 1) })
+        buttonContainer.addView(switchToEnemyButton)
 
         mainContainer.addView(buttonContainer)
         rootLayout.addView(mainContainer)
@@ -465,7 +484,7 @@ class PokemonViewManager(
             enemyStatusContainer.addView(protIv)*/
             enemyProtectView.visibility= View.VISIBLE
             enemyProtectView.setAssetImage("move_symbols/Black/Protection 1.png")
-            enemyProtectView.setMargins(bottom = 8)
+            //enemyProtectView.setMargins(bottom = 8)
             enemyProtectView.setSize(120, 120)
             enemyProtectView.alpha = if (viewModel.enemyUsesProtect) 1.0f else 0.3f
             enemyProtectView.setOnClickListener { viewModel.enemyUsesProtect = !viewModel.enemyUsesProtect; viewModel.setUpdateUI() }
@@ -474,6 +493,7 @@ class PokemonViewManager(
             enemyProtectView.visibility= View.GONE
             viewModel.enemyUsesProtect = false }
 
+        enemyStatusContainer.setMargins(right = 8)
         viewModel.enemyWeather.value?.let { weather ->
             val path = "Field/$weather.png"
             val weatherIv = ImageView(activity).apply {
@@ -516,8 +536,11 @@ class PokemonViewManager(
 
     fun updatePokedexButtonText() {
         viewModel.ownPokemon.value?.let {
+            pokedexButton.visibility = View.VISIBLE
             pokedexButton.text = if (it.pokedexEntries.isNotEmpty()) "Pokédex (${if (it.nextPokedexIndex == 0) it.pokedexEntries.size else it.nextPokedexIndex}/${it.pokedexEntries.size})" else "Pokédex"
-        } ?: run { pokedexButton.text = "Pokédex" }
+        } ?: run {
+            pokedexButton.visibility = View.GONE
+            pokedexButton.text = "Pokédex" }
     }
 
     fun updateEvolutionViews() {
