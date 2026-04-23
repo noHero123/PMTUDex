@@ -231,11 +231,16 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         P2PSyncService.onDataReceived = { json, senderIp ->
             lifecycleScope.launch {
                 try {
-                    logging("get data from $senderIp...")
+
                     val data = Gson().fromJson(json, P2PSyncService.SyncData::class.java)
-                    
+                    logging("get "+data.type+" from $senderIp...")
                     when (data.type) {
                         "HANDSHAKE" -> {
+                            P2PSyncService.lastPongReceived[senderIp] = System.currentTimeMillis()
+                        }
+                        "PING" -> {
+                            // Update the timestamp so the monitor knows this peer is alive
+                            P2PSyncService.lastPongReceived[senderIp] = System.currentTimeMillis()
                         }
                         "SYNC" -> {
                             if (isFightOngoing && P2PSyncService.isSameIp(senderIp, fightOpponentIp)) {

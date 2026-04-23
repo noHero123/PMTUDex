@@ -115,11 +115,11 @@ object P2PSyncService {
 
     fun startService() {
         isServerEnabledByUser = true
+        startConnectionMonitoring()
         if (serverSocket == null) {
             _localIp = getIPAddress()
             startListening()
             Log.d(TAG,"start heartbeat")
-            startConnectionMonitoring()
         }
     }
 
@@ -173,6 +173,7 @@ object P2PSyncService {
 
             if (isAlive) {
                 Log.d(TAG, "Connect skipped: $ip is already active and healthy")
+                retryCountMap.remove(ip) // Reset retri
                 isStartsPending = false
                 return
             } else {
@@ -206,9 +207,23 @@ object P2PSyncService {
                 socket.tcpNoDelay = true
                 // Connect timeout of 5 seconds
                 socket.connect(InetSocketAddress(ip, PORT), 5000)
+                retryCountMap.remove(ip)
                 manageConnectedSocket(socket, true)
             } catch (e: Exception) {
                 Log.e(TAG, "Connection error to $ip: ${e.message}")
+
+                val currentRetries = retryCountMap[ip] ?: 0
+                if (currentRetries < 3) {
+                    retryCountMap[ip] = currentRetries + 1
+                    Log.w(TAG, "Connection to $ip failed. Retrying in 2s... (${currentRetries + 1}/3)")
+                    val randomDelay = (1000..4000).random().toLong()
+
+                    delay(randomDelay)
+                    connectToPeer(ip) // Trigger the next attempt
+                } else {
+                    Log.e(TAG, "Max retries reached for $ip. Giving up.")
+                    retryCountMap.remove(ip) // Important: stop trying until next discovery
+                }
             } finally {
                 // 5. Remove from pending list once the attempt is finished
                 pendingConnections.remove(ip)
@@ -217,35 +232,60 @@ object P2PSyncService {
         isStartsPending = false
     }
 
+    private fun broadcastPing() {
+        val pingMsg = SyncData(type = "PING", sourceIp = localIp)
+        val json = Gson().toJson(pingMsg)
+
+        // Use the existing serviceScope to perform IO
+        serviceScope.launch {
+            activePeers.forEach { (ip, socket) ->
+                Log.d(TAG, "Pinging $ip")
+                try {
+                    // We use a manual writer here to ensure we don't
+                    // create 50 separate coroutines via sendDataToPeer
+                    val writer = PrintWriter(socket.getOutputStream(), true)
+                    writer.println(json)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Ping failed for $ip: ${e.message}")
+                }
+            }
+        }
+    }
+
     private fun startConnectionMonitoring() {
         monitoringJob?.cancel() // Ensure only one monitor runs
         Log.d(TAG, "heartbeat " + activePeers.size)
+        val heartbeatInterval = 5000L // 5 seconds
         monitoringJob = serviceScope.launch {
             while (isActive) {
-                delay(5000) // Wait 3 seconds
-
+                Log.d(TAG,"heartbeat")
+                delay(heartbeatInterval) // Wait 5 seconds
+                val now = System.currentTimeMillis()
                 val deadPeers = mutableListOf<String>()
 
                 activePeers.forEach { (ip, socket) ->
-                    val isAlive = try {
-                        // Check if socket is open and host is reachable via ICMP/Port 7
-                        !socket.isClosed &&
-                                socket.isConnected &&
-                                InetAddress.getByName(ip).isReachable(1000)
-                    } catch (e: Exception) {
-                        false
-                    }
+                    // Check if we received ANY message (like a PING) from them recently
+                    val lastSeen = lastPongReceived[ip] ?: now
+                    val isStale = (now - lastSeen) > (heartbeatInterval + 2000) // 5s interval + 2s grace
 
-                    if (!isAlive) {
+                    if (isStale || socket.isClosed || !socket.isConnected) {
                         deadPeers.add(ip)
                     }
+                }
+
+                if (activePeers.isNotEmpty()) {
+                    broadcastPing()
                 }
 
                 if (deadPeers.isNotEmpty()) {
                     deadPeers.forEach { ip ->
                         Log.d(TAG, "Monitor detected dead connection: $ip. Cleaning up.")
                         val socket = activePeers.remove(ip)
-                        try { socket?.close() } catch (e: Exception) {}
+                        lastPongReceived.remove(ip)
+                        try {
+                            socket?.close()
+                        } catch (e: Exception) {
+                        }
                         onPeerDisconnected?.invoke(ip)
                     }
                     updateStatus()
@@ -286,6 +326,7 @@ object P2PSyncService {
         
         activePeers[peerIp] = socket
         lastConnectedIp.add(peerIp)
+        lastPongReceived[peerIp] = System.currentTimeMillis()
         Log.d(TAG, "New connection from $peerIp")
         updateStatus()
 
@@ -303,16 +344,27 @@ object P2PSyncService {
                 val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
                 while (isActive) {
                     val line = reader.readLine() ?: break
+                    lastPongReceived[peerIp] = System.currentTimeMillis()
                     processIncomingInternalMessage(line, socket, isInitiator)
                     onDataReceived?.invoke(line, peerIp)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Read error from $peerIp", e)
             } finally {
-                activePeers.remove(peerIp)
-                socket.close()
+                val wasConnected = activePeers.remove(peerIp) != null
+                try { socket.close() } catch (e: Exception) {}
                 updateStatus()
                 onPeerDisconnected?.invoke(peerIp)
+
+                // RECONNECT LOGIC:
+                // If the connection dropped unexpectedly and the server is still enabled
+                if (wasConnected && isServerEnabledByUser) {
+                    Log.d(TAG, "Attempting to reconnect to $peerIp after read error...")
+                    // We call connectToPeer which will handle the 3-retry logic
+                    val randomDelay = (1000..4000).random().toLong()
+                    delay(randomDelay)
+                    connectToPeer(peerIp)
+                }
             }
         }
     }
@@ -422,6 +474,7 @@ object P2PSyncService {
         Log.e(TAG, "STOP SERVICE")
         monitoringJob?.cancel()
         serverSocket?.close()
+        pendingConnections.clear()
         activePeers.values.forEach { it.close() }
         activePeers.clear()
         updateStatus()
@@ -435,6 +488,7 @@ object P2PSyncService {
     }
     fun stopByUser(){
         isServerEnabledByUser = false
+        retryCountMap.clear()
         lastConnectedIp.clear()
         stopService()
     }
@@ -472,7 +526,7 @@ object P2PSyncService {
     }
 
     data class SyncData(
-        val type: String,
+        val type: String, // "PING", "PONG", "SYNC", etc.
         val ownPokemonJson: String? = null,
         val enemyPokemonJson: String? = null,
         var ownWeather: String? = null,
@@ -482,4 +536,10 @@ object P2PSyncService {
         val sourceIp: String? = null,
         val sourceName: String? = null
     )
+
+
+    // Map to track when we last heard a PONG from an IP
+    val lastPongReceived = ConcurrentHashMap<String, Long>()
+    // Tracks retry attempts for each IP: Map<IP, AttemptCount>
+    private val retryCountMap = ConcurrentHashMap<String, Int>()
 }
