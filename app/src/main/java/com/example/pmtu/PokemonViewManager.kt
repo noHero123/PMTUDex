@@ -1,7 +1,6 @@
 package com.example.pmtu
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -29,11 +28,13 @@ class PokemonViewManager(
     private val uiMapper: PokemonUiMapper,
     private val detailsRepository: DetailsRepository,
     private val syncManager: SyncManager,
+    private val evolutionHandler: EvolutionHandler,
+    private val imageManager: ImageManager,
     private val onNewScanRequested: () -> Unit,
     private val onSettingsRequested: () -> Unit
 ) {
     lateinit var imageView: ImageView
-    lateinit var textView: TextView
+    private lateinit var textView: TextView
     private lateinit var diceContainer: LinearLayout
     private lateinit var teamContainer: LinearLayout
     lateinit var enemySpriteView: ImageView
@@ -47,7 +48,6 @@ class PokemonViewManager(
     private lateinit var evolutionsContainer: LinearLayout
     private lateinit var preEvolutionsContainer: LinearLayout
     private lateinit var movesLayout: LinearLayout
-    private lateinit var settingsButton: ImageView
     lateinit var syncInfoRow: LinearLayout
     lateinit var connectionCountTv: TextView
     private lateinit var fightButton: ImageView
@@ -68,7 +68,7 @@ class PokemonViewManager(
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             setPadding(16, 16, 64, 16)
         }
-        settingsButton = ImageView(activity).apply {
+        val settingsButton = ImageView(activity).apply {
             setImageResource(android.R.drawable.ic_menu_preferences)
             layoutParams = LinearLayout.LayoutParams(80, 80)
             setOnClickListener { onSettingsRequested() }
@@ -382,13 +382,7 @@ class PokemonViewManager(
     private fun loadTeamSprite(pokemon: PokemonInfo, index: Int, imageView: ImageView) {
         activity.lifecycleScope.launch {
             val url = if (pokemon.spriteUrl.isNotEmpty()) pokemon.spriteUrl else "https://www.serebii.net/pokedex-sv/icon/${pokemon.id}.png"
-            val bitmap = activity.getPokemonBitmap(url) ?: withContext(Dispatchers.IO) {
-                try {
-                    val b = BitmapFactory.decodeStream(URL(url).openStream())
-                    if (b != null) activity.saveBitmapToCache(url, b)
-                    b
-                } catch (e: Exception) { null }
-            }
+            val bitmap = imageManager.getPokemonBitmap(url) ?: imageManager.downloadImage(url)
             bitmap?.let {
                 pokemon.spriteBitmap = it
                 imageView.setBackgroundColor(Color.WHITE)
@@ -523,7 +517,7 @@ class PokemonViewManager(
                     val mega = pokedexRepository.hasMegaEvolution(pokemon.id)
                     if (pokemon.isBaseItemActivated) {
                         pokemon.isBaseItemActivated = false
-                        if (mega != null && !pokemon.isDynaActivated && !pokemon.isGigaDynaActivated) activity.evolvePokemon(mega, 0, "mega")
+                        if (mega != null && !pokemon.isDynaActivated && !pokemon.isGigaDynaActivated) evolutionHandler.evolvePokemon(mega, 0, "mega")
                     } else if (pokedexRepository.isMega(pokemon.id)) {
                         viewModel.lastSelectedIndex?.let { idx -> viewModel.setOwnPokemon(viewModel.teamPokemon.value[idx], idx) }
                         viewModel.setUpdateUI()
@@ -584,7 +578,7 @@ class PokemonViewManager(
                         layoutParams = FrameLayout.LayoutParams(120, 120).apply { gravity = Gravity.CENTER_VERTICAL or Gravity.END; rightMargin = 64 + 120 }
                         if (!own.isGigaDynaActivated) colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) })
                         setOnClickListener {
-                            if (gigaDyna != null) activity.evolvePokemon(gigaDyna, 0, "gmax")
+                            if (gigaDyna != null) evolutionHandler.evolvePokemon(gigaDyna, 0, "gmax")
                             else viewModel.lastSelectedIndex?.let { idx -> viewModel.setOwnPokemon(viewModel.teamPokemon.value[idx], idx); viewModel.setUpdateUI() }
                         }
                     }
@@ -680,13 +674,10 @@ class PokemonViewManager(
         }
         uiMapper.updateEnemyTypeIcons(enemy, enemyTypesContainer)
         activity.lifecycleScope.launch {
-            (activity.getPokemonBitmap(spriteUrl) ?: withContext(Dispatchers.IO) {
-                try {
-                    val b = BitmapFactory.decodeStream(URL(spriteUrl).openStream())
-                    if (b != null) activity.saveBitmapToCache(spriteUrl, b)
-                    b
-                } catch (e: Exception) { null }
-            })?.let { enemySpriteView.setImageBitmap(it); clearEnemyButton.visibility = View.VISIBLE }
+            (imageManager.getPokemonBitmap(spriteUrl) ?: imageManager.downloadImage(spriteUrl))?.let { 
+                enemySpriteView.setImageBitmap(it)
+                clearEnemyButton.visibility = View.VISIBLE 
+            }
         }
     }
 
@@ -714,13 +705,10 @@ class PokemonViewManager(
         val iv = ImageView(activity).apply { layoutParams = LinearLayout.LayoutParams(120, 120); setPadding(8, 8, 8, 8) }
         container.addView(iv)
         activity.lifecycleScope.launch {
-            (activity.getPokemonBitmap(spriteUrl) ?: withContext(Dispatchers.IO) {
-                try {
-                    val b = BitmapFactory.decodeStream(URL(spriteUrl).openStream())
-                    if (b != null) activity.saveBitmapToCache(spriteUrl, b)
-                    b
-                } catch (e: Exception) { null }
-            })?.let { iv.setImageBitmap(it); iv.setOnClickListener { activity.get_pokedex(number, spriteUrl, "https://www.serebii.net/pokemon/art/$number.png") } }
+            (imageManager.getPokemonBitmap(spriteUrl) ?: imageManager.downloadImage(spriteUrl))?.let { 
+                iv.setImageBitmap(it)
+                iv.setOnClickListener { activity.get_pokedex(number, spriteUrl, "https://www.serebii.net/pokemon/art/$number.png") } 
+            }
         }
     }
 

@@ -36,6 +36,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     lateinit var detailsRepository: DetailsRepository
     lateinit var syncManager: SyncManager
     lateinit var viewManager: PokemonViewManager
+    lateinit var imageManager: ImageManager
+    lateinit var evolutionHandler: EvolutionHandler
 
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
@@ -77,14 +79,17 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         trainerRepository = TrainerRepository(this)
         uiMapper = PokemonUiMapper(this)
         detailsRepository = DetailsRepository(this)
+        imageManager = ImageManager(this)
+        evolutionHandler = EvolutionHandler(viewModel, pokedexRepository)
+        
         viewModel.loadTeamData()
         
         scanHandler = ScanHandler(this, viewModel, pokedexRepository, moveRepository, trainerRepository)
         syncManager = SyncManager(
             context = this,
             viewModel = viewModel,
-            onFightStarted = { runOnUiThread { viewManager.updateFightButton() }; syncManager.syncViaP2P() },
-            onFightEnded = { runOnUiThread { viewManager.updateFightButton(); viewModel.setEnemyPokemon(null); viewModel.setUpdateUI() } },
+            onFightStarted = { runOnUiThread { if (::viewManager.isInitialized) viewManager.updateFightButton() }; syncManager.syncViaP2P() },
+            onFightEnded = { runOnUiThread { if (::viewManager.isInitialized) { viewManager.updateFightButton(); viewModel.setEnemyPokemon(null); viewModel.setUpdateUI() } } },
             onSyncReceived = { pokemon, weather ->
                 viewModel.setEnemyPokemon(pokemon)
                 viewModel.setEnemyWeather(weather)
@@ -102,6 +107,8 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             uiMapper = uiMapper,
             detailsRepository = detailsRepository,
             syncManager = syncManager,
+            evolutionHandler = evolutionHandler,
+            imageManager = imageManager,
             onNewScanRequested = { pokemonScannerLauncher.launch(Intent(this, MainActivity::class.java)) },
             onSettingsRequested = { teamBrowserLauncher.launch(Intent(this, SettingsActivity::class.java)) }
         )
@@ -156,8 +163,20 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
         lifecycleScope.launch {
             viewModel.ownPokemon.collectLatest { pokemon ->
-                uiMapper.updatePokemonImage(pokemon, viewManager.imageView, android.R.drawable.ic_menu_camera)
-                pokemon?.let { downloadImage(it.artUrl.ifEmpty { "https://www.serebii.net/pokemon/art/${it.id}.png" }, it.spriteUrl) }
+                if (pokemon == null) {
+                    viewManager.imageView.setImageResource(android.R.drawable.ic_menu_camera)
+                } else {
+                    val artUrl = pokemon.artUrl.ifEmpty { "https://www.serebii.net/pokemon/art/${pokemon.id}.png" }
+                    // Try to load big picture (art) first from cache/assets
+                    val artBitmap = imageManager.getPokemonBitmap(artUrl)
+                    if (artBitmap != null) {
+                        viewManager.imageView.setImageBitmap(artBitmap)
+                    } else {
+                        // Fallback to sprite bitmap if available, or placeholder
+                        uiMapper.updatePokemonImage(pokemon, viewManager.imageView, android.R.drawable.ic_menu_camera)
+                    }
+                    downloadImage(artUrl, pokemon.spriteUrl)
+                }
             }
         }
     }
@@ -175,18 +194,6 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    fun evolvePokemon(id: String, levelDiff: Int = 0, source: String = "lvl") {
-        val old = viewModel.ownPokemon.value ?: return
-        pokedexRepository.findPokemonByNumber(id, "https://www.serebii.net/pokedex-sv/icon/$id.png", "https://www.serebii.net/pokemon/art/$id.png")?.let { next ->
-            next.copyStateFrom(old)
-            next.additionalLevel += levelDiff
-            if (source == "mega") next.isBaseItemActivated = true
-            if (source == "gmax") next.isGigaDynaActivated = true
-            viewModel.setOwnPokemon(next)
-            viewModel.setUpdateUI()
-        }
-    }
-
     fun get_pokedex(number: String, spriteUrl: String, artUrl: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             pokedexRepository.findPokemonByNumber(number, spriteUrl, artUrl)?.let { info ->
@@ -201,46 +208,19 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun downloadImage(artUrl: String, spriteUrl: String) {
         lifecycleScope.launch {
-            (getPokemonBitmap(artUrl) ?: withContext(Dispatchers.IO) {
-                try {
-                    val b = BitmapFactory.decodeStream(java.net.URL(artUrl).openStream())
-                    if (b != null) saveBitmapToCache(artUrl, b)
-                    b
-                } catch (e: Exception) { null }
-            })?.let { viewManager.imageView.setImageBitmap(it) }
-            (getPokemonBitmap(spriteUrl) ?: withContext(Dispatchers.IO) {
-                try {
-                    val b = BitmapFactory.decodeStream(java.net.URL(spriteUrl).openStream())
-                    if (b != null) saveBitmapToCache(spriteUrl, b)
-                    b
-                } catch (e: Exception) { null }
-            })?.let { b -> viewModel.ownPokemon.value?.let { p -> p.spriteBitmap = b; p.spriteBase64 = bitmapToBase64(b); viewModel.saveTeamData(); viewModel.setUpdateUINoSync() } }
+            // Download and display big picture
+            imageManager.downloadImage(artUrl)?.let { viewManager.imageView.setImageBitmap(it) }
+            
+            // Also download sprite for team view/sync
+            imageManager.downloadImage(spriteUrl)?.let { b ->
+                viewModel.ownPokemon.value?.let { p -> 
+                    p.spriteBitmap = b
+                    p.spriteBase64 = imageManager.bitmapToBase64(b)
+                    viewModel.saveTeamData()
+                    viewModel.setUpdateUINoSync()
+                } 
+            }
         }
-    }
-
-    fun getPokemonBitmap(url: String): Bitmap? {
-        val id = url.substringAfterLast("/").replace(".png", "")
-        val folders = if (url.contains("icon")) listOf("sprites") else listOf("art")
-        for (f in folders) {
-            try { assets.open("$f/$id.png").use { return BitmapFactory.decodeStream(it) } } catch (e: Exception) {}
-        }
-        val file = getCacheFile(url)
-        return if (file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
-    }
-
-    fun saveBitmapToCache(url: String, bitmap: Bitmap) {
-        try { FileOutputStream(getCacheFile(url)).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } catch (e: Exception) {}
-    }
-
-    private fun getCacheFile(url: String): File {
-        val dir = File(filesDir, "pokemon_images").apply { if (!exists()) mkdirs() }
-        return File(dir, Base64.encodeToString(url.toByteArray(), Base64.URL_SAFE or Base64.NO_WRAP))
-    }
-
-    private fun bitmapToBase64(bitmap: Bitmap): String {
-        val os = java.io.ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, os)
-        return Base64.encodeToString(os.toByteArray(), Base64.DEFAULT)
     }
 
     fun speakOut(text: String) {
