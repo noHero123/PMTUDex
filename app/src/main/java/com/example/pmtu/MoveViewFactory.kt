@@ -179,7 +179,7 @@ class MoveViewFactory(
             setAssetImage("base_items/${pokemon.baseItem}.png")
             colorFilter = if (!pokemon.isBaseItemActivated) ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) }) else null
             setOnClickListener {
-                val toggleableItems = arrayOf("Dyna", "Left", "Quic", "Wide", "Mega")
+                val toggleableItems = arrayOf("Dyna", "Left", "Quic", "Wide", "Mega", "Evio")
                 if (pokemon.baseItem in toggleableItems) pokemon.isBaseItemActivated = !pokemon.isBaseItemActivated
                 if (pokemon.baseItem == "Mega") {
                     val mega = pokedexRepository.hasMegaEvolution(pokemon.id)

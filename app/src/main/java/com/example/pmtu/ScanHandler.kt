@@ -24,7 +24,7 @@ class ScanHandler(
 
     fun getToggleAbleItems():Array<String>
     {
-        return arrayOf("Dyna","Left","Quic","Wide","Mega")
+        return arrayOf("Dyna","Left","Quic","Wide","Mega", "Evio")
     }
 
     fun handleScan(scannedText: String, lifecycleOwner: LifecycleOwner): ScanResult {
