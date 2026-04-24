@@ -119,6 +119,7 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
     fun clearEnemy() {
         _enemyPokemon.value = null
         _enemyWeather.value = null
+        enemyUsesProtect = false
     }
 
     fun addToTeam(slot: Int) {

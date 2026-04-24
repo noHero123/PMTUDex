@@ -1,6 +1,7 @@
 package com.example.pmtu
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
@@ -18,11 +19,11 @@ import java.io.IOException
 
 class PokemonUiMapper(private val context: Context) {
 
-    fun updatePokemonImage(pokemon: PokemonInfo?, imageView: ImageView, defaultResId: Int) {
+    fun updatePokemonImage(pokemon: PokemonInfo?, imageView: ImageView, default_image: Bitmap) {
         if (pokemon?.spriteBitmap != null) {
             imageView.setImageBitmap(pokemon.spriteBitmap)
         } else {
-            imageView.setImageResource(defaultResId)
+            imageView.setImageBitmap(default_image)
         }
     }
 
@@ -69,6 +70,7 @@ class PokemonUiMapper(private val context: Context) {
         enemyWeather: String?,
         pokedexRepository: PokedexRepository,
         moveRepo: MoveRepository,
+        enemyUsesProtext: Boolean,
         onEffectClicked: (String, View, String?) -> Unit
     ): CharSequence {
         val moveData = result.moveData
@@ -147,6 +149,13 @@ class PokemonUiMapper(private val context: Context) {
         val allEffects = moveRepo.getAllEffects(result, ownPokemon, enemyPokemon, ownWeather, enemyWeather, pokedexRepository)
         for(effect in allEffects)
         {
+            if(enemyUsesProtext)
+            {
+                if(effect.first.contains("W Priority") || effect.first.startsWith("B "))
+                {
+                    continue
+                }
+            }
             addEffectIcon(builder, effect.first, textView, effect.second, onEffectClicked)
         }
 

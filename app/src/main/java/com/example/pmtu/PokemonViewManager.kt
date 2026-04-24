@@ -149,38 +149,6 @@ class PokemonViewManager(
         }
         mainContainer.addView(diceContainer)
 
-        /*val imageEvoLayout = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setSize(ViewGroup.LayoutParams.MATCH_PARENT, 600)
-        }
-        imageView = ImageView(activity).apply {
-            setImageBitmap(imageManager.getDefaultImage())
-            setSize(600, 600)
-            scaleType = ImageView.ScaleType.FIT_CENTER
-        }
-        imageEvoLayout.addView(imageView)
-        mainContainer.addView(imageEvoLayout)
-
-        preEvolutionsContainer = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                marginStart = 50
-            }
-        }
-        evolutionsContainer = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                gravity = Gravity.END or Gravity.CENTER_VERTICAL
-                marginEnd = 50
-            }
-        }
-        rootLayout.addView(preEvolutionsContainer)
-        rootLayout.addView(evolutionsContainer)*/
-
         // Find this section in your setupUI()
         val imageEvoLayout = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL

@@ -176,7 +176,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         downloadSpriteOnly(pokemon)
                     } else {
                         // Fallback to placeholder then download
-                        uiMapper.updatePokemonImage(pokemon, viewManager.imageView, android.R.drawable.ic_menu_camera)
+                        uiMapper.updatePokemonImage(pokemon, viewManager.imageView, imageManager.getDefaultImage())
                         downloadAllImages(pokemon)
                     }
                 }

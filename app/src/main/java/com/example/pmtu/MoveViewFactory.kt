@@ -93,7 +93,7 @@ class MoveViewFactory(
                 result, this, prefs.getString("language", "en") ?: "en",
                 viewModel.ownPokemon.value, viewModel.enemyPokemon.value,
                 viewModel.ownWeather.value, viewModel.enemyWeather.value,
-                pokedexRepository, moveRepository
+                pokedexRepository, moveRepository, viewModel.enemyUsesProtect
             ) { effectName, view, path -> onDetailPopupRequested(effectName, view, path) }
         }
         row.addView(moveTextView)
