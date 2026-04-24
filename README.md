@@ -44,6 +44,7 @@ After pressing the settings button, you are able to:<br>
 - disable type immunities<br>
 - add speaker symbols next to the moves, to read out the names of the moves. (My son is 5 and cant read ;) )<br>
 - manage your team<br>
+- manage your Network Trainer Name<br>
 - start a Server: a QR code is displayed, that other devices with the app can scan. It will allow to synconize between your current end the others enemy and vice versa:<br>
   <img src="readme_pics/server_mode - Kopie.jpg" width="500"/><br>
   the Squirtle was only scanned with the upper device, the Chamander only scanned, with the lower device. but you can see the card that was not scanned as the enemy. (Note: I created Cards instead of Tokens, because i find them practical. But in the QR-files-folder you will find the backs of the token with QR codes)<br>
@@ -63,6 +64,16 @@ Items will also show on the slot. Sometimes they provide an permanent effect:<br
 <img src="readme_pics/Kingsrock.png" height="350"/> &rarr; <img src="readme_pics/scan_king.png" height="350"/><br><br>
 Sometimes items needs to be activated after scanning:<br>
 <img src="readme_pics/Megastone.png" height="350"/> &rarr; <img src="readme_pics/scan_mega.png" height="350"/><br><br>
+
+## Update 1.5<br>
+If the enemy has a move with Protect, a Protect sign is shown next to the enemy. tap it to get the attack values with 0-attack moves:<br>
+<img src="readme_pics/enemy_protect_1.png" height="350"/> &rarr; <img src="readme_pics/enemy_protect_2.png" height="350"/><br><br><br>
+The connection to other devices was reworked: after you connect to other device(s), you will notice a new row: it shows a "start fight" symbol and the number of connected devices. Press the "start fight" symbol and the other devices will get a notification that you want to fight. The first person with accepts the fight will be your enemy. Only the Pokemon between these two devices will be shared. Click on the Run button to exit from the battle.<br>
+<img src="readme_pics/con_1.png" height="350"/> &rarr; <img src="readme_pics/con_2.png" height="350"/>&rarr; <img src="readme_pics/con_3.png" height="350"/><br><br><br>
+There is a new point in setting, that let you change the name, that is displayed in the combat-challenge-notification. Tap on it to change the name:<br>
+<img src="readme_pics/server_mode - Kopie4.jpg" height="350"/><br><br><br>
+
+
 
 
  
