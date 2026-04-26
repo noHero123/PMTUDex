@@ -101,7 +101,7 @@ class TeamBrowserActivity : AppCompatActivity() {
             teamListContainer.addView(emptyTv)
             return
         }
-
+        val imageManager: ImageManager = ImageManager(this)
         val json = file.readText()
         val type = object : TypeToken<MutableList<SavedTeam>>() {}.type
         val savedTeams: MutableList<SavedTeam> = Gson().fromJson(json, type)
@@ -155,7 +155,12 @@ class TeamBrowserActivity : AppCompatActivity() {
                 if (pokemon?.spriteBase64 != null) {
                     iv.setImageBitmap(base64ToBitmap(pokemon.spriteBase64!!))
                 } else {
-                    iv.setBackgroundColor(Color.LTGRAY)
+                    if(pokemon!=null){
+                        iv.setImageBitmap(imageManager.getPokemonBitmap(pokemon.spriteUrl))
+                    }
+                    else {
+                        iv.setBackgroundColor(Color.LTGRAY)
+                    }
                 }
                 spritesLayout.addView(iv)
             }
