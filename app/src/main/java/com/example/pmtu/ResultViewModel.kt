@@ -155,6 +155,10 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
 
         _ownPokemon.value = _enemyPokemon.value
         _enemyPokemon.value = oldOwn
+        if(_ownPokemon.value == null)
+        {
+            lastSelectedIndex = null
+        }
 
         _ownWeather.value = _enemyWeather.value
         _enemyWeather.value = oldWeather

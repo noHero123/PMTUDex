@@ -96,6 +96,7 @@ class ResultActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             onSyncReceived = { pokemon, weather ->
                 viewModel.setEnemyPokemon(pokemon)
                 viewModel.setEnemyWeather(weather)
+                viewModel.lastEnemySelectedIndex = null
                 viewModel.setUpdateUINoSync()
                 P2PSyncService.sendOK()
             }
