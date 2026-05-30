@@ -106,6 +106,7 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setEnemyPokemon(pokemon: PokemonInfo?) {
         _enemyPokemon.value = pokemon
+        lastEnemySelectedIndex = null
     }
 
     fun setOwnWeather(weather: String?) {
@@ -120,6 +121,7 @@ class ResultViewModel(application: Application) : AndroidViewModel(application) 
         _enemyPokemon.value = null
         _enemyWeather.value = null
         enemyUsesProtect = false
+        lastEnemySelectedIndex = null
     }
 
     fun addToTeam(slot: Int) {
