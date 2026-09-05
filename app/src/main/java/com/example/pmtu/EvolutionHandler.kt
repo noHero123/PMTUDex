@@ -14,7 +14,12 @@ class EvolutionHandler(
             next.additionalLevel += levelDiff
             if (source == "mega") next.isBaseItemActivated = true
             if (source == "gmax") next.isGigaDynaActivated = true
-            viewModel.setOwnPokemon(next)
+            val teamIdx = viewModel.currentTeamIndex.value
+            viewModel.setOwnPokemon(next, teamIdx)
+            if (teamIdx != null) {
+                viewModel.teamPokemon.value[teamIdx] = next
+                viewModel.saveTeamData()
+            }
             viewModel.setUpdateUI()
         }
     }

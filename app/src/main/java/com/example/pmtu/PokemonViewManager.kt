@@ -47,6 +47,7 @@ class PokemonViewManager(
 
     lateinit var enemyProtectView: ImageView
     lateinit var enemySpriteView: ImageView
+    lateinit var enemyLevelTv: TextView
     lateinit var clearEnemyButton: ImageView
     lateinit var enemyTypesContainer: LinearLayout
     lateinit var enemyStatusContainer: LinearLayout
@@ -293,6 +294,16 @@ class PokemonViewManager(
         enemySpriteView = ImageView(activity).apply { setSize(120, 120) }
         enemyInfoContainer.addView(enemySpriteView)
 
+        enemyLevelTv = TextView(activity).apply {
+            textSize = 20f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(Color.BLACK)
+            gravity = Gravity.CENTER_VERTICAL
+            setMargins(left = 8)
+            visibility = View.GONE
+        }
+        enemyInfoContainer.addView(enemyLevelTv)
+
         clearEnemyButton = ImageView(activity).apply {
             setAssetImage("trash.png")
             setSize(100, 100)
@@ -384,23 +395,140 @@ class PokemonViewManager(
         diceContainer.removeAllViews()
         val own = viewModel.ownPokemon.value ?: return
         if (all) {
+            val levelEvos = pokedexRepository.getLevelEvolutions(own.id)
+            val evoDiffs = levelEvos.mapNotNull { evoId ->
+                pokedexRepository.getBaseLevel(evoId)?.let { evoBaseLevel ->
+                    val diff = evoBaseLevel - own.base_level
+                    if (diff in 0..6) diff else null
+                }
+            }.toSet()
+
             for (i in 0..6) {
+                val isSelected = (own.additionalLevel == i)
+                val isEvoLevel = evoDiffs.contains(i)
+
+                val diceContainerSlot = FrameLayout(activity).apply {
+                    val size = if (isSelected) 124 else 110
+                    setSize(size, size)
+                    setMargins(left = 4, right = 4)
+                    if (isEvoLevel) {
+                        background = android.graphics.drawable.GradientDrawable().apply {
+                            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                            cornerRadius = 16f
+                            setStroke(6, Color.parseColor("#4CAF50")) // Highlight evolution-level die
+                            setColor(if (isSelected) Color.parseColor("#334CAF50") else Color.parseColor("#224CAF50"))
+                        }
+                    } else if (isSelected) {
+                        background = android.graphics.drawable.GradientDrawable().apply {
+                            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                            cornerRadius = 16f
+                            setStroke(4, Color.parseColor("#005BE2"))
+                            setColor(Color.parseColor("#22005BE2"))
+                        }
+                    }
+                }
                 val diceIv = ImageView(activity).apply {
                     setAssetImage("blued6_$i.png")
-                    setSize(100, 100)
-                    setMargins(left = 8, right = 8)
+                    val innerSize = if (isSelected) 114 else 96
+                    layoutParams = FrameLayout.LayoutParams(innerSize, innerSize).apply {
+                        gravity = Gravity.CENTER
+                    }
                     setOnClickListener { own.additionalLevel = i; showDice(false); refreshUI(); viewModel.saveTeamData(); syncManager.syncViaP2P() }
                 }
-                diceContainer.addView(diceIv)
+                diceContainerSlot.setOnClickListener { own.additionalLevel = i; showDice(false); refreshUI(); viewModel.saveTeamData(); syncManager.syncViaP2P() }
+                diceContainerSlot.addView(diceIv)
+                diceContainer.addView(diceContainerSlot)
             }
         } else {
             val wrapper = FrameLayout(activity).apply { setSize(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT) }
-            val diceIv = ImageView(activity).apply {
-                setAssetImage("blued6_${own.additionalLevel}.png")
-                layoutParams = FrameLayout.LayoutParams(150, 150).apply { gravity = Gravity.CENTER }
+
+            val currentTotalLevel = own.base_level + own.additionalLevel
+            val enemy = viewModel.enemyPokemon.value
+            val prefs = activity.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
+            val easierLevelUp = prefs.getBoolean("easier_level_up", false)
+
+            var canLevelUp = false
+            if (enemy != null) {
+                val enemyTotalLevel = enemy.base_level + enemy.additionalLevel
+                val requiredLevel = if (easierLevelUp) currentTotalLevel - 1 else currentTotalLevel
+                canLevelUp = enemyTotalLevel >= requiredLevel
+            }
+
+            val levelBackground = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                setColor(Color.parseColor("#005BE2")) // Blue matching the level die
+                cornerRadius = 24f
+            }
+
+            val centerRow = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                layoutParams = FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    gravity = Gravity.CENTER
+                }
+            }
+
+            val levelTv = TextView(activity).apply {
+                val textBuilder = android.text.SpannableStringBuilder()
+                textBuilder.append(currentTotalLevel.toString())
+                if (canLevelUp) {
+                    val plusStart = textBuilder.length
+                    textBuilder.append("+")
+                    textBuilder.setSpan(
+                        android.text.style.RelativeSizeSpan(0.6f),
+                        plusStart,
+                        textBuilder.length,
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                    textBuilder.setSpan(
+                        android.text.style.SuperscriptSpan(),
+                        plusStart,
+                        textBuilder.length,
+                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
+                text = textBuilder
+                textSize = 32f
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                setTextColor(Color.WHITE)
+                background = levelBackground
+                gravity = Gravity.CENTER
+                setPadding(40, 16, 40, 16)
                 setOnClickListener { showDice(true) }
             }
-            wrapper.addView(diceIv)
+            centerRow.addView(levelTv)
+
+            // Check if pokemon has reached or exceeded any evolution base level
+            val eligibleEvolutions = pokedexRepository.getLevelEvolutions(own.id).filter { evoId ->
+                val evoBaseLevel = pokedexRepository.getBaseLevel(evoId)
+                evoBaseLevel != null && currentTotalLevel >= evoBaseLevel
+            }
+
+            if (eligibleEvolutions.isNotEmpty()) {
+                val evolveButton = ImageView(activity).apply {
+                    setAssetImage("arrow_green.png")
+                    rotation = 270f // arrow pointing up
+                    setSize(100, 100)
+                    setMargins(left = 16)
+                    setOnClickListener {
+                        if (eligibleEvolutions.size == 1) {
+                            val evoId = eligibleEvolutions[0]
+                            val evoBaseLevel = pokedexRepository.getBaseLevel(evoId) ?: own.base_level
+                            val levelDifference = evoBaseLevel - own.base_level
+                            evolutionHandler.evolvePokemon(evoId, -levelDifference, "lvl")
+                        } else {
+                            showLevelEvolutionSelectionDialog(eligibleEvolutions, own)
+                        }
+                    }
+                }
+                centerRow.addView(evolveButton)
+            }
+
+            wrapper.addView(centerRow)
+
             if (own.isDynaAvailable && !own.isGigaDynaActivated && !pokedexRepository.isMega(own.id)) {
                 val dynaIv = ImageView(activity).apply {
                     setAssetImage("G-Max Ball.png")
@@ -476,6 +604,7 @@ class PokemonViewManager(
     fun updateEnemySprite(spriteUrl: String) {
         if (spriteUrl.isEmpty()) {
             enemySpriteView.setImageDrawable(null)
+            enemyLevelTv.visibility = View.GONE
             clearEnemyButton.visibility = View.GONE
             enemyTypesContainer.removeAllViews()
             enemyStatusContainer.removeAllViews()
@@ -529,6 +658,14 @@ class PokemonViewManager(
             }
         }
         uiMapper.updateEnemyTypeIcons(enemy, enemyTypesContainer)
+
+        if (enemy != null) {
+            val enemyTotalLevel = enemy.base_level + enemy.additionalLevel
+            enemyLevelTv.text = enemyTotalLevel.toString()
+            enemyLevelTv.visibility = View.VISIBLE
+        } else {
+            enemyLevelTv.visibility = View.GONE
+        }
         
         val existing = activity.imageManager.getPokemonBitmap(spriteUrl)
         if (existing != null) {
@@ -616,6 +753,66 @@ class PokemonViewManager(
         }
         //val isEevee = own.id == "133"
         //val containerHeight = if (isEevee) ViewGroup.LayoutParams.WRAP_CONTENT else ViewGroup.LayoutParams.MATCH_PARENT
+    }
+
+    private fun showLevelEvolutionSelectionDialog(evoIds: List<String>, currentPokemon: PokemonInfo) {
+        val scrollContainer = android.widget.HorizontalScrollView(activity).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            isFillViewport = false
+        }
+
+        val dialogView = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(16, 24, 16, 24)
+        }
+        scrollContainer.addView(dialogView)
+
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(activity)
+            .setTitle("Choose Evolution")
+            .setView(scrollContainer)
+            .setNegativeButton("Cancel", null)
+            .create()
+
+        evoIds.forEach { evoId ->
+            val evoContainer = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(16, 16, 16, 16)
+                isClickable = true
+                isFocusable = true
+                setBackgroundResource(android.R.drawable.list_selector_background)
+                setOnClickListener {
+                    dialog.dismiss()
+                    val evoBaseLevel = pokedexRepository.getBaseLevel(evoId) ?: currentPokemon.base_level
+                    val levelDifference = evoBaseLevel - currentPokemon.base_level
+                    evolutionHandler.evolvePokemon(evoId, -levelDifference, "lvl")
+                }
+            }
+
+            val spriteIv = ImageView(activity).apply {
+                setSize(150, 150)
+                val spriteUrl = "https://www.serebii.net/pokedex-sv/icon/$evoId.png"
+                val existing = activity.imageManager.getPokemonBitmap(spriteUrl)
+                if (existing != null) {
+                    setImageBitmap(existing)
+                } else {
+                    setAssetImage("defaultpicture.png")
+                    activity.lifecycleScope.launch {
+                        activity.imageManager.downloadImage(spriteUrl)?.let {
+                            setImageBitmap(it)
+                        }
+                    }
+                }
+            }
+            evoContainer.addView(spriteIv)
+            dialogView.addView(evoContainer)
+        }
+
+        dialog.show()
     }
 
     private fun addEvoSprite(number: String, container: LinearLayout) {

@@ -10,6 +10,8 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 class MoveViewFactory(
     private val context: Context,
@@ -182,10 +184,16 @@ class MoveViewFactory(
                 val toggleableItems = arrayOf("Dyna", "Left", "Quic", "Wide", "Mega", "Evio")
                 if (pokemon.baseItem in toggleableItems) pokemon.isBaseItemActivated = !pokemon.isBaseItemActivated
                 if (pokemon.baseItem == "Mega") {
-                    val mega = pokedexRepository.hasMegaEvolution(pokemon.id)
+                    val megaList = pokedexRepository.getMegaEvolutions(pokemon.id)
                     if (pokemon.isBaseItemActivated) {
                         pokemon.isBaseItemActivated = false
-                        if (mega != null && !pokemon.isDynaActivated && !pokemon.isGigaDynaActivated) evolutionHandler.evolvePokemon(mega, 0, "mega")
+                        if (megaList.isNotEmpty() && !pokemon.isDynaActivated && !pokemon.isGigaDynaActivated) {
+                            if (megaList.size == 1) {
+                                evolutionHandler.evolvePokemon(megaList[0], 0, "mega")
+                            } else {
+                                showMegaEvolutionSelectionDialog(megaList)
+                            }
+                        }
                     } else if (pokedexRepository.isMega(pokemon.id)) {
                         viewModel.lastSelectedIndex?.let { idx -> viewModel.setOwnPokemon(viewModel.teamPokemon.value[idx], idx) }
                         viewModel.setUpdateUI()
@@ -218,5 +226,56 @@ class MoveViewFactory(
             }
         }
         row.addView(deleteIv)
+    }
+
+    private fun showMegaEvolutionSelectionDialog(megaIds: List<String>) {
+        val dialogView = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(32, 32, 32, 32)
+        }
+
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(context)
+            .setTitle(pokedexRepository.getGermanName("Mega"))
+            .setTitle("Choose Mega Evolution")
+            .setView(dialogView)
+            .setNegativeButton("Cancel", null)
+            .create()
+
+        megaIds.forEach { megaId ->
+            val megaContainer = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(16, 16, 16, 16)
+                isClickable = true
+                isFocusable = true
+                setBackgroundResource(android.R.drawable.list_selector_background)
+                setOnClickListener {
+                    dialog.dismiss()
+                    evolutionHandler.evolvePokemon(megaId, 0, "mega")
+                }
+            }
+
+            val spriteIv = ImageView(context).apply {
+                setSize(150, 150)
+                val spriteUrl = "https://www.serebii.net/pokedex-sv/icon/$megaId.png"
+                val existing = (context as? ResultActivity)?.imageManager?.getPokemonBitmap(spriteUrl)
+                if (existing != null) {
+                    setImageBitmap(existing)
+                } else {
+                    setAssetImage("defaultpicture.png")
+                    (context as? androidx.lifecycle.LifecycleOwner)?.lifecycleScope?.launch {
+                        val downloaded = (context as? ResultActivity)?.imageManager?.downloadImage(spriteUrl)
+                        if (downloaded != null) {
+                            setImageBitmap(downloaded)
+                        }
+                    }
+                }
+            }
+            megaContainer.addView(spriteIv)
+            dialogView.addView(megaContainer)
+        }
+
+        dialog.show()
     }
 }

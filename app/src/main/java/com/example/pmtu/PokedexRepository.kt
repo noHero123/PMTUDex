@@ -81,6 +81,34 @@ class PokedexRepository(private val context: Context) {
         return null
     }
 
+    fun getMegaEvolutions(number: String): List<String> {
+        return getTagsInEvolution(number, "{Mega}")
+    }
+
+    fun getTagsInEvolution(number: String, tag: String): List<String> {
+        val unQuotedId = number.removeSurrounding("\"")
+        val quotedId = "\"$unQuotedId\""
+        val matchingIds = mutableListOf<String>()
+
+        evolutionsCache.forEach { columns ->
+            if (columns.isNotEmpty() && columns[0] == quotedId) {
+                for (i in 1 until columns.size) {
+                    val cleanId = columns[i].trim().removeSurrounding("\"")
+                    if (cleanId.isNotEmpty()) {
+                        val data = pokedexCache[cleanId]
+                        if (data != null && data.size > 1) {
+                            val name = data[1]
+                            if (name.contains(tag, ignoreCase = true)) {
+                                matchingIds.add(cleanId)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return matchingIds
+    }
+
     fun hasMegaEvolution(number: String): String?{
         return hasTagInEvolution(number, "{Mega}")
     }
@@ -209,6 +237,24 @@ class PokedexRepository(private val context: Context) {
             }
         }
         return Pair(evos, preEvos)
+    }
+
+    fun getLevelEvolutions(number: String): List<String> {
+        val (evos, _) = getEvolutions(number)
+        return evos.filter { evoId ->
+            val data = pokedexCache[evoId]
+            if (data != null && data.size > 1) {
+                val name = data[1]
+                !name.contains("{Mega}", ignoreCase = true) && !name.contains("{G-Max}", ignoreCase = true)
+            } else {
+                false
+            }
+        }
+    }
+
+    fun getBaseLevel(number: String): Int? {
+        val columns = pokedexCache[number] ?: return null
+        return if (columns.size > 2) columns[2].toIntOrNull() else null
     }
 
     fun isFullyEvolved(number: String): Boolean {

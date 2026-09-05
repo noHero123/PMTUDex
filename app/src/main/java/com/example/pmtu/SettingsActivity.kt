@@ -145,6 +145,15 @@ class SettingsActivity : AppCompatActivity(), ZXingScannerView.ResultHandler {
         }
         rootLayout.addView(speakerCheckbox)
 
+        val easierLevelUpCheckbox = CheckBox(this).apply {
+            text = "Allow Level Up if Enemy is 1 Level Lower"
+            isChecked = prefs.getBoolean("easier_level_up", false)
+            setOnCheckedChangeListener { _, isChecked ->
+                prefs.edit().putBoolean("easier_level_up", isChecked).apply()
+            }
+        }
+        rootLayout.addView(easierLevelUpCheckbox)
+
         val space = View(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, 48)
         }
