@@ -239,6 +239,11 @@ class PokedexRepository(private val context: Context) {
         return Pair(evos, preEvos)
     }
 
+    fun getBaseForm(number: String): String? {
+        val (_, preEvos) = getEvolutions(number)
+        return preEvos.firstOrNull()
+    }
+
     fun getLevelEvolutions(number: String): List<String> {
         val (evos, _) = getEvolutions(number)
         return evos.filter { evoId ->

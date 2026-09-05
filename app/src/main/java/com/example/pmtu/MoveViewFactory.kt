@@ -181,24 +181,25 @@ class MoveViewFactory(
             setAssetImage("base_items/${pokemon.baseItem}.png")
             colorFilter = if (!pokemon.isBaseItemActivated) ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) }) else null
             setOnClickListener {
-                val toggleableItems = arrayOf("Dyna", "Left", "Quic", "Wide", "Mega", "Evio")
-                if (pokemon.baseItem in toggleableItems) pokemon.isBaseItemActivated = !pokemon.isBaseItemActivated
                 if (pokemon.baseItem == "Mega") {
-                    val megaList = pokedexRepository.getMegaEvolutions(pokemon.id)
-                    if (pokemon.isBaseItemActivated) {
-                        pokemon.isBaseItemActivated = false
+                    val isMegaCurrently = pokedexRepository.isMega(pokemon.id) || pokemon.isBaseItemActivated
+                    if (isMegaCurrently) {
+                        evolutionHandler.devolvePokemon("mega")
+                        syncManager.syncViaP2P()
+                    } else {
+                        val megaList = pokedexRepository.getMegaEvolutions(pokemon.id)
                         if (megaList.isNotEmpty() && !pokemon.isDynaActivated && !pokemon.isGigaDynaActivated) {
                             if (megaList.size == 1) {
                                 evolutionHandler.evolvePokemon(megaList[0], 0, "mega")
+                                syncManager.syncViaP2P()
                             } else {
                                 showMegaEvolutionSelectionDialog(megaList)
                             }
                         }
-                    } else if (pokedexRepository.isMega(pokemon.id)) {
-                        viewModel.lastSelectedIndex?.let { idx -> viewModel.setOwnPokemon(viewModel.teamPokemon.value[idx], idx) }
-                        viewModel.setUpdateUI()
                     }
                 } else {
+                    val toggleableItems = arrayOf("Dyna", "Left", "Quic", "Wide", "Evio")
+                    if (pokemon.baseItem in toggleableItems) pokemon.isBaseItemActivated = !pokemon.isBaseItemActivated
                     viewModel.setUpdateUI()
                     viewModel.saveTeamData()
                     syncManager.syncViaP2P()
@@ -207,10 +208,18 @@ class MoveViewFactory(
         }
         row.addView(iv)
         addDeleteButton(row) {
-            pokemon.baseItem = null
-            pokemon.isBaseItemActivated = false
+            if (pokedexRepository.isMega(pokemon.id)) {
+                evolutionHandler.devolvePokemon("mega")
+            }
+            val current = viewModel.ownPokemon.value ?: pokemon
+            current.baseItem = null
+            current.isBaseItemActivated = false
+            val teamIdx = viewModel.currentTeamIndex.value
+            if (teamIdx != null) {
+                viewModel.teamPokemon.value[teamIdx] = current
+                viewModel.saveTeamData()
+            }
             viewModel.setUpdateUI()
-            viewModel.saveTeamData()
         }
         return row
     }
@@ -229,16 +238,23 @@ class MoveViewFactory(
     }
 
     private fun showMegaEvolutionSelectionDialog(megaIds: List<String>) {
+        val scrollContainer = android.widget.HorizontalScrollView(context).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
         val dialogView = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(32, 32, 32, 32)
+            setPadding(16, 24, 16, 24)
         }
+        scrollContainer.addView(dialogView)
 
         val dialog = androidx.appcompat.app.AlertDialog.Builder(context)
-            .setTitle(pokedexRepository.getGermanName("Mega"))
             .setTitle("Choose Mega Evolution")
-            .setView(dialogView)
+            .setView(scrollContainer)
             .setNegativeButton("Cancel", null)
             .create()
 
@@ -253,6 +269,7 @@ class MoveViewFactory(
                 setOnClickListener {
                     dialog.dismiss()
                     evolutionHandler.evolvePokemon(megaId, 0, "mega")
+                    syncManager.syncViaP2P()
                 }
             }
 

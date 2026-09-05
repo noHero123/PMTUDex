@@ -31,7 +31,8 @@ data class PokemonInfo(
     var statusCondition: String? = null,
     var isDynaAvailable: Boolean = false,
     var isDynaActivated: Boolean = false,
-    var isGigaDynaActivated: Boolean = false
+    var isGigaDynaActivated: Boolean = false,
+    var originalFormId: String? = null
 ):Parcelable {
     @Transient
     @IgnoredOnParcel
@@ -49,6 +50,7 @@ data class PokemonInfo(
         this.isDynaAvailable= other.isDynaAvailable
         this.isDynaActivated= other.isDynaActivated
         this.isGigaDynaActivated= other.isGigaDynaActivated
+        this.originalFormId = other.originalFormId
     }
 
     fun hasTypelessMove(): Boolean {

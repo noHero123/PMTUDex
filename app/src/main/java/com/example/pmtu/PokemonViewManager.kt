@@ -448,7 +448,7 @@ class PokemonViewManager(
             val easierLevelUp = prefs.getBoolean("easier_level_up", false)
 
             var canLevelUp = false
-            if (enemy != null) {
+            if (enemy != null && own.additionalLevel < 6) {
                 val enemyTotalLevel = enemy.base_level + enemy.additionalLevel
                 val requiredLevel = if (easierLevelUp) currentTotalLevel - 1 else currentTotalLevel
                 canLevelUp = enemyTotalLevel >= requiredLevel
@@ -540,14 +540,22 @@ class PokemonViewManager(
             }
             if (own.isDynaAvailable && !own.isDynaActivated) {
                 val gigaDyna = pokedexRepository.hasGMaxEvolution(own.id)
-                if (gigaDyna != null || own.isGigaDynaActivated) {
+                val isGMaxCurrently = pokedexRepository.isGmax(own.id) || own.isGigaDynaActivated
+                if (gigaDyna != null || isGMaxCurrently) {
                     val dynaIv = ImageView(activity).apply {
                         setAssetImage("G-Max Symbol.png")
                         layoutParams = FrameLayout.LayoutParams(120, 120).apply { gravity = Gravity.CENTER_VERTICAL or Gravity.END; rightMargin = 64 + 120 }
                         if (!own.isGigaDynaActivated) colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0f) })
                         setOnClickListener {
-                            if (gigaDyna != null) evolutionHandler.evolvePokemon(gigaDyna, 0, "gmax")
-                            else viewModel.lastSelectedIndex?.let { idx -> viewModel.setOwnPokemon(viewModel.teamPokemon.value[idx], idx); viewModel.setUpdateUI() }
+                            if (!own.isGigaDynaActivated) {
+                                if (gigaDyna != null) {
+                                    evolutionHandler.evolvePokemon(gigaDyna, 0, "gmax")
+                                    syncManager.syncViaP2P()
+                                }
+                            } else {
+                                evolutionHandler.devolvePokemon("gmax")
+                                syncManager.syncViaP2P()
+                            }
                         }
                     }
                     wrapper.addView(dynaIv)
